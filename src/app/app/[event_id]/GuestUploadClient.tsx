@@ -1,9 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import imageCompression from 'browser-image-compression';
 import { createClient } from '@/lib/supabase/client';
 import { registerPhotoAction } from '@/server/actions/photos';
+import {
+  enqueuePhoto,
+  getQueuedPhotosByEvent,
+  dequeuePhoto,
+  type QueuedPhoto,
+} from '@/lib/offline-queue';
 import {
   Camera,
   UploadCloud,
@@ -14,6 +20,8 @@ import {
   RefreshCw,
   User,
   Image as ImageIcon,
+  MessageSquare,
+  WifiOff,
 } from 'lucide-react';
 
 interface GuestUploadClientProps {
@@ -30,6 +38,7 @@ export default function GuestUploadClient({
   tableNumber,
 }: GuestUploadClientProps) {
   const [uploaderName, setUploaderName] = useState<string>('');
+  const [caption, setCaption] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -38,18 +47,86 @@ export default function GuestUploadClient({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number>(0);
   const [recentUploads, setRecentUploads] = useState<string[]>([]);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [queuedCount, setQueuedCount] = useState<number>(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Restore remembered guest name
+  // Restore remembered guest name & check queue count
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      setIsOnline(navigator.onLine);
       const savedName = localStorage.getItem('guest_uploader_name');
-      if (savedName) {
-        setUploaderName(savedName);
-      }
+      if (savedName) setUploaderName(savedName);
+
+      // Check offline queue
+      getQueuedPhotosByEvent(eventId).then((items) => {
+        setQueuedCount(items.length);
+      });
     }
-  }, []);
+  }, [eventId]);
+
+  // Sync queued photos when back online
+  const syncOfflineQueue = useCallback(async () => {
+    if (typeof window === 'undefined' || !navigator.onLine) return;
+
+    try {
+      const items = await getQueuedPhotosByEvent(eventId);
+      if (items.length === 0) return;
+
+      const supabase = createClient();
+
+      for (const item of items) {
+        const fileExt = item.fileType.split('/')[1] || 'jpg';
+        const fileName = `${eventId}/${Date.now()}-table${item.tableNumber}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('event-photos')
+          .upload(fileName, item.fileBlob, {
+            contentType: item.fileType,
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (!uploadError && uploadData) {
+          await registerPhotoAction({
+            eventId,
+            tableNumber: item.tableNumber,
+            storagePath: uploadData.path,
+            uploaderName: item.uploaderName,
+            caption: item.caption,
+          });
+
+          await dequeuePhoto(item.id);
+        }
+      }
+
+      const remaining = await getQueuedPhotosByEvent(eventId);
+      setQueuedCount(remaining.length);
+      if (remaining.length === 0 && items.length > 0) {
+        setSuccessCount((prev) => prev + items.length);
+      }
+    } catch {
+      // Will retry next time
+    }
+  }, [eventId]);
+
+  // Online / offline event listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncOfflineQueue();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [syncOfflineQueue]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -76,6 +153,7 @@ export default function GuestUploadClient({
 
   const handleReset = () => {
     setSelectedFile(null);
+    setCaption('');
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -95,6 +173,7 @@ export default function GuestUploadClient({
     }
 
     const trimmedName = uploaderName.trim() || 'Invitado';
+    const trimmedCaption = caption.trim() || undefined;
 
     try {
       setIsProcessing(true);
@@ -113,6 +192,24 @@ export default function GuestUploadClient({
 
       const compressedFile = await imageCompression(selectedFile, compressionOptions);
 
+      // Check if user is offline -> Enqueue immediately
+      if (!navigator.onLine) {
+        setStepStatus('Guardando en el teléfono (modo offline)...');
+        await enqueuePhoto({
+          eventId,
+          tableNumber,
+          fileBlob: compressedFile,
+          fileType: compressedFile.type,
+          uploaderName: trimmedName,
+          caption: trimmedCaption,
+        });
+
+        setQueuedCount((prev) => prev + 1);
+        handleReset();
+        setSuccessCount((prev) => prev + 1);
+        return;
+      }
+
       setStepStatus('Subiendo a la pantalla en vivo...');
       const supabase = createClient();
 
@@ -129,16 +226,28 @@ export default function GuestUploadClient({
         });
 
       if (uploadError || !uploadData) {
-        throw new Error(uploadError?.message || 'Error al subir la imagen al servidor');
+        // Enqueue on network failure
+        await enqueuePhoto({
+          eventId,
+          tableNumber,
+          fileBlob: compressedFile,
+          fileType: compressedFile.type,
+          uploaderName: trimmedName,
+          caption: trimmedCaption,
+        });
+        setQueuedCount((prev) => prev + 1);
+        handleReset();
+        return;
       }
 
-      // 3. Register Photo in PostgreSQL via Server Action with event validation
+      // 3. Register Photo in PostgreSQL via Server Action
       setStepStatus('Mostrando en la pantalla gigante...');
       const registerRes = await registerPhotoAction({
         eventId,
         tableNumber,
         storagePath: uploadData.path,
         uploaderName: trimmedName,
+        caption: trimmedCaption,
       });
 
       if (!registerRes.success) {
@@ -168,7 +277,7 @@ export default function GuestUploadClient({
       <div>
         <header className="glass-panel rounded-2xl p-4 sm:p-5 text-center relative overflow-hidden border-zinc-800">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-500 via-purple-400 to-amber-400" />
-          
+
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate max-w-[180px]">
               {venueName}
@@ -188,8 +297,32 @@ export default function GuestUploadClient({
           </div>
         </header>
 
+        {/* Offline Warning Notice */}
+        {!isOnline && (
+          <div className="mt-3 p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 flex items-center gap-2.5 text-amber-200 text-xs">
+            <WifiOff className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>
+              Estás sin conexión. Sacá las fotos igual: se guardan en tu teléfono y se envían apenas
+              recuperes señal.
+            </span>
+          </div>
+        )}
+
+        {/* Queued Photos Banner */}
+        {queuedCount > 0 && (
+          <div className="mt-2 p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between text-purple-200 text-xs">
+            <span>{queuedCount} foto(s) guardadas esperando señal</span>
+            <button
+              onClick={syncOfflineQueue}
+              className="px-2 py-1 rounded bg-purple-600/40 hover:bg-purple-600 text-white font-semibold"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
         {/* Guest Input Form & Photo Capture */}
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-3">
           {/* Uploader Name Field */}
           <div className="glass-card rounded-xl p-3 border-zinc-800">
             <label className="block text-xs font-semibold text-zinc-400 mb-1 flex items-center gap-1.5">
@@ -203,6 +336,22 @@ export default function GuestUploadClient({
               placeholder="Ej. Sofi, Martín, Tío Jorge..."
               maxLength={30}
               className="w-full bg-zinc-900/90 border border-zinc-700/80 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
+            />
+          </div>
+
+          {/* Dedication / Caption Field */}
+          <div className="glass-card rounded-xl p-3 border-zinc-800">
+            <label className="block text-xs font-semibold text-zinc-400 mb-1 flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+              <span>Dedicatoria o Mensaje (opcional)</span>
+            </label>
+            <input
+              type="text"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Ej. ¡Vivan los novios! / ¡Feliz cumple!"
+              maxLength={150}
+              className="w-full bg-zinc-900/90 border border-zinc-700/80 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
             />
           </div>
 
@@ -313,7 +462,7 @@ export default function GuestUploadClient({
                   {isProcessing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Proyectando...</span>
+                      <span>Procesando...</span>
                     </>
                   ) : (
                     <>

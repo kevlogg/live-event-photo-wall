@@ -6,12 +6,16 @@ import {
   createEventSchema,
   toggleEventStatusSchema,
   updateActiveTablesSchema,
+  updateModerationModeSchema,
+  toggleTableBlockSchema,
   type CreateEventInput,
   type ToggleEventStatusInput,
   type UpdateActiveTablesInput,
+  type UpdateModerationModeInput,
+  type ToggleTableBlockInput,
 } from '@/schemas';
 import type { ActionResult } from './venues';
-import type { Event } from '@/types/database';
+import type { Event, ModerationMode } from '@/types/database';
 
 export async function createEventAction(
   rawInput: CreateEventInput
@@ -24,7 +28,8 @@ export async function createEventAction(
     };
   }
 
-  const { venueId, title, startTime, endTime, activeTablesCount, isActive } = parsed.data;
+  const { venueId, title, startTime, endTime, activeTablesCount, isActive, moderationMode } =
+    parsed.data;
   const supabase = createAdminClient();
 
   try {
@@ -54,6 +59,7 @@ export async function createEventAction(
         end_time: endTime,
         active_tables_count: activeTablesCount,
         is_active: isActive,
+        moderation_mode: moderationMode,
       })
       .select('*')
       .single();
@@ -110,6 +116,43 @@ export async function toggleEventStatusAction(
   }
 }
 
+export async function updateModerationModeAction(
+  rawInput: UpdateModerationModeInput
+): Promise<ActionResult<{ id: string; moderationMode: ModerationMode }>> {
+  const parsed = updateModerationModeSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors.map((e) => e.message).join(', '),
+    };
+  }
+
+  const { eventId, moderationMode } = parsed.data;
+  const supabase = createAdminClient();
+
+  try {
+    const { error } = await supabase
+      .from('events')
+      .update({ moderation_mode: moderationMode })
+      .eq('id', eventId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/events');
+    revalidatePath(`/admin/events/${eventId}/moderate`);
+
+    return {
+      success: true,
+      data: { id: eventId, moderationMode },
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error al cambiar modo de moderación';
+    return { success: false, error: message };
+  }
+}
+
 export async function updateActiveTablesAction(
   rawInput: UpdateActiveTablesInput
 ): Promise<ActionResult<{ id: string; activeTablesCount: number }>> {
@@ -142,6 +185,56 @@ export async function updateActiveTablesAction(
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error al actualizar mesas activas';
+    return { success: false, error: message };
+  }
+}
+
+export async function toggleTableBlockAction(
+  rawInput: ToggleTableBlockInput
+): Promise<ActionResult<{ eventId: string; tableNumber: number; isBlocked: boolean }>> {
+  const parsed = toggleTableBlockSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors.map((e) => e.message).join(', '),
+    };
+  }
+
+  const { eventId, tableNumber, block, reason } = parsed.data;
+  const supabase = createAdminClient();
+
+  try {
+    if (block) {
+      // 1. Insert into blocked_tables
+      await supabase.from('blocked_tables').upsert({
+        event_id: eventId,
+        table_number: tableNumber,
+        reason: reason || 'Bloqueado por el moderador',
+      });
+
+      // 2. Hide all existing photos from this table
+      await supabase
+        .from('photos')
+        .update({ status: 'rejected' })
+        .eq('event_id', eventId)
+        .eq('table_number', tableNumber);
+    } else {
+      // Unblock table
+      await supabase
+        .from('blocked_tables')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('table_number', tableNumber);
+    }
+
+    revalidatePath(`/admin/events/${eventId}/moderate`);
+
+    return {
+      success: true,
+      data: { eventId, tableNumber, isBlocked: block },
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error al modificar bloqueo de mesa';
     return { success: false, error: message };
   }
 }

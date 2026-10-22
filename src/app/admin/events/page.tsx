@@ -47,6 +47,7 @@ export default async function AdminEventsPage() {
         end_time: e.end_time,
         active_tables_count: e.active_tables_count,
         is_active: e.is_active,
+        moderation_mode: e.moderation_mode || 'auto_approve',
         created_at: e.created_at,
         venue: {
           id: venueObj?.id || e.venue_id,

@@ -9,7 +9,8 @@ import {
   Sparkles,
   Camera,
   Tv,
-  Users,
+  Power,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface LiveWallClientProps {
@@ -31,7 +32,7 @@ export default function LiveWallClient({
   const [spotlightPhoto, setSpotlightPhoto] = useState<Photo | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [spotlightTimer, setSpotlightTimer] = useState<number>(0);
-  const [autoRotateIndex, setAutoRotateIndex] = useState<number>(0);
+  const [isBlackoutActive, setIsBlackoutActive] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +44,21 @@ export default function LiveWallClient({
     },
     [supabaseStorageUrl]
   );
+
+  // Keyboard shortcut listener for Emergency Kill-Switch (Spacebar or 'B')
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        setIsBlackoutActive((prev) => !prev);
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Supabase Realtime Subscription
   useEffect(() => {
@@ -66,7 +82,7 @@ export default function LiveWallClient({
               return [newPhoto, ...prev];
             });
 
-            // Trigger Spotlight for 8 seconds
+            // Trigger Spotlight for 8.5 seconds
             setSpotlightPhoto(newPhoto);
             setSpotlightTimer(Date.now());
           }
@@ -90,10 +106,29 @@ export default function LiveWallClient({
               }
               return [updated, ...prev];
             } else {
-              // Removed or rejected
+              // Photo was rejected by moderator -> remove from wall immediately
+              if (spotlightPhoto?.id === updated.id) {
+                setSpotlightPhoto(null);
+              }
               return prev.filter((p) => p.id !== updated.id);
             }
           });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'photos',
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload) => {
+          const deleted = payload.old as { id: string };
+          if (spotlightPhoto?.id === deleted.id) {
+            setSpotlightPhoto(null);
+          }
+          setPhotos((prev) => prev.filter((p) => p.id !== deleted.id));
         }
       )
       .subscribe();
@@ -101,7 +136,7 @@ export default function LiveWallClient({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [eventId]);
+  }, [eventId, spotlightPhoto]);
 
   // Spotlight Auto-dismiss
   useEffect(() => {
@@ -130,8 +165,30 @@ export default function LiveWallClient({
       ref={containerRef}
       className="relative w-screen h-screen bg-black text-white overflow-hidden select-none flex flex-col justify-between font-sans"
     >
+      {/* Emergency Blackout Screen (Kill-Switch Active) */}
+      {isBlackoutActive ? (
+        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center p-8 animate-fade-in text-center">
+          <div className="w-20 h-20 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 shadow-2xl">
+            <Sparkles className="w-10 h-10 text-amber-400" />
+          </div>
+          <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tight">
+            {eventTitle}
+          </h2>
+          <p className="mt-4 text-xl text-zinc-500 font-light tracking-widest uppercase">
+            {venueName}
+          </p>
+
+          <button
+            onClick={() => setIsBlackoutActive(false)}
+            className="mt-12 px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-500 hover:text-zinc-300 transition-all"
+          >
+            Presiona Espacio o haz clic para reanudar proyección
+          </button>
+        </div>
+      ) : null}
+
       {/* Top Floating Projector Header */}
-      <header className="z-30 px-6 py-4 flex items-center justify-between bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+      <header className="z-30 px-6 py-4 flex items-center justify-between bg-gradient-to-b from-black/95 via-black/60 to-transparent">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-amber-500 p-0.5 shadow-lg shadow-brand-500/20">
             <div className="w-full h-full bg-black/80 rounded-[10px] flex items-center justify-center">
@@ -161,11 +218,20 @@ export default function LiveWallClient({
             <span>{photos.length} fotos proyectadas</span>
           </div>
 
+          {/* Kill Switch Quick Button */}
+          <button
+            onClick={() => setIsBlackoutActive((prev) => !prev)}
+            className="p-2.5 rounded-xl glass-card hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 transition-all border-zinc-800"
+            title="Pánico / Pausa (Barra Espaciadora)"
+          >
+            <Power className="w-5 h-5" />
+          </button>
+
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
             className="p-2.5 rounded-xl glass-card hover:bg-zinc-800 text-zinc-400 hover:text-white transition-all border-zinc-800"
-            title="Pantalla Completa"
+            title="Pantalla Completa (F)"
           >
             {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </button>
@@ -207,8 +273,13 @@ export default function LiveWallClient({
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     loading="lazy"
                   />
-                  {/* Overlay Gradient with Metadata */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3 opacity-90 transition-opacity">
+                  {/* Overlay Gradient with Metadata & Caption */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-3 opacity-95 transition-opacity">
+                    {photo.caption && (
+                      <p className="text-xs text-white/95 font-medium italic line-clamp-2 drop-shadow mb-1">
+                        &quot;{photo.caption}&quot;
+                      </p>
+                    )}
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-white truncate max-w-[120px] drop-shadow">
                         {photo.uploader_name}
@@ -241,17 +312,22 @@ export default function LiveWallClient({
             </div>
 
             {/* Photo Container */}
-            <div className="relative w-full max-h-[68vh] rounded-2xl overflow-hidden bg-zinc-950 flex items-center justify-center">
+            <div className="relative w-full max-h-[64vh] rounded-2xl overflow-hidden bg-zinc-950 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={getPhotoUrl(spotlightPhoto.storage_path)}
                 alt={`Nueva foto de ${spotlightPhoto.uploader_name}`}
-                className="max-h-[68vh] w-auto object-contain rounded-xl shadow-2xl"
+                className="max-h-[64vh] w-auto object-contain rounded-xl shadow-2xl"
               />
             </div>
 
             {/* Caption & Author */}
             <div className="mt-3 text-center">
+              {spotlightPhoto.caption && (
+                <p className="text-base sm:text-lg text-amber-200 font-medium italic mb-1">
+                  &quot;{spotlightPhoto.caption}&quot;
+                </p>
+              )}
               <h3 className="text-xl sm:text-2xl font-extrabold text-white">
                 {spotlightPhoto.uploader_name}
               </h3>
@@ -272,7 +348,7 @@ export default function LiveWallClient({
           </span>
         </div>
         <div className="text-[11px] text-zinc-500 hidden sm:block">
-          Powered by Live Event Photo Wall
+          Presiona [Barra Espaciadora] para Modo Pausa de Emergencia
         </div>
       </footer>
     </div>

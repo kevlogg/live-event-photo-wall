@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 export type PhotoStatus = 'pending' | 'approved' | 'rejected';
+export type ModerationMode = 'auto_approve' | 'strict';
 
 export interface Venue {
   id: string;
@@ -31,6 +32,7 @@ export interface Event {
   end_time: string;
   active_tables_count: number;
   is_active: boolean;
+  moderation_mode: ModerationMode;
   created_at: string;
 }
 
@@ -40,7 +42,16 @@ export interface Photo {
   table_number: number;
   storage_path: string;
   uploader_name: string;
+  caption?: string | null;
   status: PhotoStatus;
+  created_at: string;
+}
+
+export interface BlockedTable {
+  id: string;
+  event_id: string;
+  table_number: number;
+  reason?: string | null;
   created_at: string;
 }
 
@@ -103,6 +114,7 @@ export type Database = {
           end_time: string;
           active_tables_count?: number;
           is_active?: boolean;
+          moderation_mode?: ModerationMode;
           created_at?: string;
         };
         Update: {
@@ -113,6 +125,7 @@ export type Database = {
           end_time?: string;
           active_tables_count?: number;
           is_active?: boolean;
+          moderation_mode?: ModerationMode;
           created_at?: string;
         };
         Relationships: [
@@ -133,6 +146,7 @@ export type Database = {
           table_number: number;
           storage_path: string;
           uploader_name: string;
+          caption?: string | null;
           status?: PhotoStatus;
           created_at?: string;
         };
@@ -142,12 +156,39 @@ export type Database = {
           table_number?: number;
           storage_path?: string;
           uploader_name?: string;
+          caption?: string | null;
           status?: PhotoStatus;
           created_at?: string;
         };
         Relationships: [
           {
             foreignKeyName: 'photos_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      blocked_tables: {
+        Row: BlockedTable;
+        Insert: {
+          id?: string;
+          event_id: string;
+          table_number: number;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          table_number?: number;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'blocked_tables_event_id_fkey';
             columns: ['event_id'];
             isOneToOne: false;
             referencedRelation: 'events';
@@ -164,6 +205,7 @@ export type Database = {
     };
     Enums: {
       photo_status: PhotoStatus;
+      moderation_mode: ModerationMode;
     };
     CompositeTypes: {
       [_ in never]: never;

@@ -1,9 +1,15 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { registerPhotoSchema, type RegisterPhotoInput } from '@/schemas';
+import {
+  registerPhotoSchema,
+  moderatePhotoSchema,
+  type RegisterPhotoInput,
+  type ModeratePhotoInput,
+} from '@/schemas';
 import type { ActionResult } from './venues';
-import type { Photo } from '@/types/database';
+import type { Photo, PhotoStatus } from '@/types/database';
 
 export async function registerPhotoAction(
   rawInput: RegisterPhotoInput
@@ -16,7 +22,7 @@ export async function registerPhotoAction(
     };
   }
 
-  const { eventId, tableNumber, storagePath, uploaderName } = parsed.data;
+  const { eventId, tableNumber, storagePath, uploaderName, caption } = parsed.data;
   const supabase = createAdminClient();
 
   try {
@@ -24,7 +30,7 @@ export async function registerPhotoAction(
     const nowIso = new Date().toISOString();
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select('id, is_active, start_time, end_time, active_tables_count')
+      .select('id, is_active, start_time, end_time, active_tables_count, moderation_mode')
       .eq('id', eventId)
       .single();
 
@@ -44,7 +50,26 @@ export async function registerPhotoAction(
       return { success: false, error: `La mesa #${tableNumber} no está habilitada para esta fiesta` };
     }
 
-    // 2. Insert Photo Record
+    // 2. Check if table is blocked
+    const { data: blocked } = await supabase
+      .from('blocked_tables')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('table_number', tableNumber)
+      .maybeSingle();
+
+    if (blocked) {
+      return {
+        success: false,
+        error: `La mesa #${tableNumber} fue silenciada por el moderador del salón`,
+      };
+    }
+
+    // 3. Determine initial status based on event moderation mode
+    const initialStatus: PhotoStatus =
+      event.moderation_mode === 'strict' ? 'pending' : 'approved';
+
+    // 4. Insert Photo Record
     const { data: photo, error: insertError } = await supabase
       .from('photos')
       .insert({
@@ -52,7 +77,8 @@ export async function registerPhotoAction(
         table_number: tableNumber,
         storage_path: storagePath,
         uploader_name: uploaderName,
-        status: 'approved',
+        caption: caption || null,
+        status: initialStatus,
       })
       .select('*')
       .single();
@@ -67,6 +93,44 @@ export async function registerPhotoAction(
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error interno al procesar foto';
+    return { success: false, error: message };
+  }
+}
+
+export async function moderatePhotoAction(
+  rawInput: ModeratePhotoInput
+): Promise<ActionResult<{ photoId: string; status: PhotoStatus }>> {
+  const parsed = moderatePhotoSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.errors.map((e) => e.message).join(', '),
+    };
+  }
+
+  const { photoId, status } = parsed.data;
+  const supabase = createAdminClient();
+
+  try {
+    const { data: photo, error } = await supabase
+      .from('photos')
+      .update({ status })
+      .eq('id', photoId)
+      .select('id, event_id, status')
+      .single();
+
+    if (error || !photo) {
+      return { success: false, error: error?.message || 'Error al moderar la foto' };
+    }
+
+    revalidatePath(`/admin/events/${photo.event_id}/moderate`);
+
+    return {
+      success: true,
+      data: { photoId: photo.id, status: photo.status },
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error interno en la moderación';
     return { success: false, error: message };
   }
 }
