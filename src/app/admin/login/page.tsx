@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { loginAdminAction } from '@/server/actions/auth';
-import { Lock, ShieldCheck, Sparkles, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Lock, ShieldCheck, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 
-export default function AdminLoginPage() {
+export const dynamic = 'force-dynamic';
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('from') || '/admin/events';
@@ -120,5 +122,19 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
