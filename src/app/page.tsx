@@ -9,7 +9,7 @@ import {
   FolderDown,
   ArrowRight,
   Smartphone,
-  PartyPopper,
+  MessageCircle,
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -28,7 +28,7 @@ export default function HomePage() {
             </div>
           </div>
           <span className="font-extrabold text-xl tracking-tight text-white">
-            QR Imágenes <span className="text-brand-400">Dinámicas</span>
+            Anima tu <span className="text-brand-400">fiesta</span>
           </span>
         </div>
       </header>
@@ -47,19 +47,25 @@ export default function HomePage() {
           </span>
         </h1>
 
-        <p className="mt-6 text-base sm:text-xl text-zinc-300 max-w-3xl mx-auto leading-relaxed">
-          Cada mesa tiene su propio código QR. Tus invitados sacan fotos con su celular, dejan dedicatorias en vivo y compiten en tiempo real por ser la mesa más fiestera de la noche. Sin descargar aplicaciones.
+        <p className="mt-6 text-base sm:text-lg text-zinc-300 max-w-2xl mx-auto leading-relaxed">
+          Tus invitados escanean el código QR de su mesa y comparten fotos o dedicatorias en vivo en la pantalla gigante.
+          <span className="block mt-2 text-zinc-400 text-sm sm:text-base font-normal">
+            Proyección en tiempo real, ranking de la mesa más fiestera y sin descargar ninguna aplicación.
+          </span>
         </p>
 
-        {/* Action Button */}
+        {/* Action Button - WhatsApp */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/event-expired"
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 via-purple-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-sm font-bold shadow-lg shadow-brand-500/20 transition-all transform hover:-translate-y-0.5"
+          <a
+            href="https://wa.me/5492235851419?text=Hola%20Kevin!%20Quiero%20solicitar%20el%20servicio%20de%20Anima%20tu%20fiesta%20para%20un%20evento"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 via-purple-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-base font-bold shadow-xl shadow-brand-500/25 transition-all transform hover:-translate-y-0.5 group"
           >
-            <span>Ver cómo lo viven los invitados</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+            <MessageCircle className="w-5 h-5 text-emerald-300" />
+            <span>Solicitar servicio</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </a>
         </div>
       </section>
 
@@ -161,7 +167,14 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-zinc-900 py-6 text-center text-xs text-zinc-500">
-        © {new Date().getFullYear()} QR Imágenes Dinámicas — Experiencias interactivas para fiestas y eventos inolvidables.
+        <a
+          href="https://kevdev.net.ar"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-400 hover:text-white transition-colors"
+        >
+          sistema desarrollado por <span className="text-zinc-200 font-semibold underline underline-offset-4 hover:text-brand-400 transition-colors">kevdev</span>
+        </a>
       </footer>
     </main>
   );

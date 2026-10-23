@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'QR Imágenes Dinámicas | Experiencia Interactiva Multitenant',
-  description: 'Plataforma SaaS de fotos en vivo para eventos y salones con proyección en tiempo real y QR permanente por mesa.',
+  title: 'Anima tu fiesta | Experiencia Interactiva para Eventos',
+  description: 'Plataforma de fotos en vivo para eventos y salones con proyección en tiempo real y QR permanente por mesa.',
 };
 
 export default function RootLayout({
