@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 
 const SESSION_COOKIE_NAME = 'admin_session';
-const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin1234';
+const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Jorg3lin!';
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'super-secret-admin-session-salt-2026';
 
 // Helper to calculate HMAC-SHA256 signature in Web Crypto (Edge + Node compatible)

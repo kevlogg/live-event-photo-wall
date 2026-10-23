@@ -27,17 +27,8 @@ export default function HomePage() {
             </div>
           </div>
           <span className="font-extrabold text-xl tracking-tight text-white">
-            PhotoWall <span className="text-brand-400">Live</span>
+            QR Imágenes <span className="text-brand-400">Dinámicas</span>
           </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/events"
-            className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold text-zinc-200 border border-zinc-700 transition-all"
-          >
-            Dashboard Admin
-          </Link>
         </div>
       </header>
 
@@ -60,20 +51,13 @@ export default function HomePage() {
         </p>
 
         {/* Action Buttons */}
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/admin/events"
-            className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 via-purple-600 to-amber-500 hover:opacity-95 text-white font-bold text-base shadow-xl shadow-brand-900/40 transition-all transform hover:-translate-y-0.5"
-          >
-            <span>Ingresar al Panel de Gestión</span>
-            <ArrowRight className="w-5 h-5" />
-          </Link>
-
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/event-expired"
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-base font-semibold border border-zinc-700 transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white text-sm font-semibold border border-zinc-800 transition-all shadow"
           >
-            <span>Ver Landing de Marketing</span>
+            <span>Ver Experiencia de Invitados</span>
+            <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </section>
