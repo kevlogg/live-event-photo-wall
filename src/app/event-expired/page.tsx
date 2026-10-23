@@ -1,5 +1,5 @@
 import Link from 'next/navigation';
-import { Camera, Sparkles, Tv, ShieldCheck, CheckCircle2, ArrowRight, PartyPopper } from 'lucide-react';
+import { Camera, Sparkles, Tv, ShieldCheck, CheckCircle2, PartyPopper } from 'lucide-react';
 
 interface PageProps {
   searchParams: Promise<{
@@ -108,21 +108,19 @@ export default async function EventExpiredPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        {/* Action Button */}
-        <div className="mt-10 text-center">
-          <a
-            href="https://wa.me/?text=Hola!%20Quiero%20contratar%20el%20Live%20Photo%20Wall%20para%20mi%20evento"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-bold text-lg shadow-xl shadow-brand-900/40 transform hover:-translate-y-0.5 transition-all"
-          >
-            <PartyPopper className="w-5 h-5 text-amber-300" />
-            <span>Contratar servicio para mi fiesta</span>
-            <ArrowRight className="w-5 h-5" />
-          </a>
-          <p className="mt-3 text-xs text-zinc-500">
-            Disponible para salones de fiestas, bodas, aniversarios y eventos corporativos.
-          </p>
+        {/* Info Card */}
+        <div className="mt-10 max-w-xl mx-auto">
+          <div className="glass-panel rounded-2xl p-6 sm:p-7 border-brand-500/30 text-center relative overflow-hidden bg-gradient-to-b from-brand-950/20 to-zinc-900/60 shadow-xl">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/30 text-brand-400 mb-3 mx-auto">
+              <PartyPopper className="w-6 h-6 text-amber-300" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-2">
+              ¿Querés este servicio para tu fiesta?
+            </h3>
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Comunicate directamente con el salón o con tu organizador de eventos para incluir esta experiencia interactiva en tu fecha.
+            </p>
+          </div>
         </div>
       </div>
 
