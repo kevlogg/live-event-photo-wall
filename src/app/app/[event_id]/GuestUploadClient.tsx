@@ -22,6 +22,8 @@ import {
   Image as ImageIcon,
   MessageSquare,
   WifiOff,
+  Trophy,
+  Flame,
 } from 'lucide-react';
 
 interface GuestUploadClientProps {
@@ -295,6 +297,15 @@ export default function GuestUploadClient({
             <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
             <span>Tus fotos se proyectan en vivo en el salón</span>
           </div>
+
+          {successCount > 0 && (
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-semibold">
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>
+                ¡Tu mesa ya aportó {successCount} {successCount === 1 ? 'recuerdo' : 'recuerdos'} a la pantalla!
+              </span>
+            </div>
+          )}
         </header>
 
         {/* Offline Warning Notice */}

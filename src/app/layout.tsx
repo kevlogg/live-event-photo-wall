@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Live Event Photo Wall | Experiencia Interactiva Multitenant',
+  title: 'QR Imágenes Dinámicas | Experiencia Interactiva Multitenant',
   description: 'Plataforma SaaS de fotos en vivo para eventos y salones con proyección en tiempo real y QR permanente por mesa.',
 };
 

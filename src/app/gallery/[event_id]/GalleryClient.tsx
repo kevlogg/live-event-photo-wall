@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
+import JSZip from 'jszip';
 import type { Photo, Event } from '@/types/database';
 import {
   Download,
@@ -11,6 +12,9 @@ import {
   Share2,
   Calendar,
   Layers,
+  FolderDown,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface GalleryClientProps {
@@ -28,6 +32,14 @@ export default function GalleryClient({
 }: GalleryClientProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedFilterTable, setSelectedFilterTable] = useState<number | null>(null);
+  const [isZipping, setIsZipping] = useState<boolean>(false);
+  const [zipProgress, setZipProgress] = useState<{
+    current: number;
+    total: number;
+    percent: number;
+    status: string;
+  } | null>(null);
+  const abortZipRef = useRef<boolean>(false);
 
   const getPhotoUrl = (storagePath: string) => {
     if (storagePath.startsWith('http')) return storagePath;
@@ -56,6 +68,111 @@ export default function GalleryClient({
       URL.revokeObjectURL(blobUrl);
     } catch {
       window.open(url, '_blank');
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (filteredPhotos.length === 0 || isZipping) return;
+
+    setIsZipping(true);
+    abortZipRef.current = false;
+    const total = filteredPhotos.length;
+    setZipProgress({
+      current: 0,
+      total,
+      percent: 0,
+      status: `Iniciando descarga de ${total} fotos...`,
+    });
+
+    try {
+      const zip = new JSZip();
+      const folderName = `${event.title.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim() || 'Album'}`;
+      const imgFolder = zip.folder(folderName) || zip;
+
+      const concurrency = 3;
+      let completed = 0;
+
+      for (let i = 0; i < filteredPhotos.length; i += concurrency) {
+        if (abortZipRef.current) {
+          throw new Error('Descarga cancelada por el usuario');
+        }
+
+        const chunk = filteredPhotos.slice(i, i + concurrency);
+        await Promise.all(
+          chunk.map(async (photo) => {
+            const photoUrl = getPhotoUrl(photo.storage_path);
+            try {
+              const res = await fetch(photoUrl);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const blob = await res.blob();
+
+              const safeName = photo.uploader_name.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'Invitado';
+              const cleanFileName = `Mesa_${photo.table_number}_${safeName}_${photo.id.slice(0, 6)}.jpg`;
+              imgFolder.file(cleanFileName, blob);
+            } catch (err) {
+              console.warn(`Error al descargar foto ${photo.id}:`, err);
+            } finally {
+              completed++;
+              setZipProgress({
+                current: completed,
+                total,
+                percent: Math.round((completed / total) * 80),
+                status: `Descargando imagen ${completed} de ${total}...`,
+              });
+            }
+          })
+        );
+      }
+
+      setZipProgress({
+        current: total,
+        total,
+        percent: 85,
+        status: 'Comprimiendo archivo ZIP...',
+      });
+
+      const zipBlob = await zip.generateAsync(
+        {
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 },
+        },
+        (metadata) => {
+          setZipProgress({
+            current: total,
+            total,
+            percent: 85 + Math.round(metadata.percent * 0.15),
+            status: `Comprimiendo archivo ZIP (${Math.round(metadata.percent)}%)...`,
+          });
+        }
+      );
+
+      const safeTitle = event.title.replace(/[^a-zA-Z0-9_\-]/g, '_');
+      const filename = `Album-${safeTitle}.zip`;
+      const blobUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
+      setZipProgress({
+        current: total,
+        total,
+        percent: 100,
+        status: '¡Descarga completada con éxito!',
+      });
+      setTimeout(() => {
+        setIsZipping(false);
+        setZipProgress(null);
+      }, 2500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al generar el ZIP';
+      alert(msg);
+      setIsZipping(false);
+      setZipProgress(null);
     }
   };
 
@@ -101,16 +218,70 @@ export default function GalleryClient({
             <span className="font-semibold text-white">{photos.length} recuerdos capturados</span>
           </div>
 
-          {/* Share Button */}
-          <div className="mt-6 flex justify-center gap-3">
+          {/* Action Buttons: Share & Download ZIP */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={handleShare}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-zinc-700 transition-all shadow"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-zinc-700 transition-all shadow"
             >
               <Share2 className="w-3.5 h-3.5 text-brand-400" />
-              <span>Compartir Álbum con Invitados</span>
+              <span>Compartir Álbum</span>
+            </button>
+
+            <button
+              onClick={handleDownloadZip}
+              disabled={isZipping || filteredPhotos.length === 0}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white text-xs font-bold transition-all shadow-lg hover:shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isZipping ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <FolderDown className="w-4 h-4 text-white" />
+              )}
+              <span>
+                {isZipping
+                  ? 'Generando Archivo ZIP...'
+                  : selectedFilterTable
+                  ? `Descargar Mesa #${selectedFilterTable} (${filteredPhotos.length} fotos .ZIP)`
+                  : `Descargar Todo el Álbum (${filteredPhotos.length} fotos .ZIP)`}
+              </span>
             </button>
           </div>
+
+          {/* ZIP Progress Indicator */}
+          {zipProgress && (
+            <div className="mt-6 max-w-md mx-auto p-4 rounded-2xl bg-zinc-900/90 border border-brand-500/30 text-left">
+              <div className="flex items-center justify-between text-xs font-medium mb-2">
+                <span className="text-zinc-300 flex items-center gap-1.5">
+                  {zipProgress.percent === 100 ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+                  )}
+                  {zipProgress.status}
+                </span>
+                <span className="text-brand-300 font-bold">{zipProgress.percent}%</span>
+              </div>
+              <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-brand-500 to-purple-500 h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${zipProgress.percent}%` }}
+                />
+              </div>
+              {isZipping && zipProgress.percent < 100 && (
+                <button
+                  onClick={() => {
+                    abortZipRef.current = true;
+                    setIsZipping(false);
+                    setZipProgress(null);
+                  }}
+                  className="mt-2 text-[11px] text-zinc-500 hover:text-red-400 transition-colors"
+                >
+                  Cancelar descarga
+                </button>
+              )}
+            </div>
+          )}
         </header>
 
         {/* Table Filters */}
@@ -247,7 +418,7 @@ export default function GalleryClient({
 
       {/* Footer */}
       <footer className="mt-12 text-center text-xs text-zinc-500 py-4 border-t border-zinc-900">
-        Álbum digital generado por Live Event Photo Wall • {event.title}
+        Álbum digital generado por QR Imágenes Dinámicas • {event.title}
       </footer>
     </div>
   );

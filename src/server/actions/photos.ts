@@ -10,6 +10,7 @@ import {
 } from '@/schemas';
 import type { ActionResult } from './venues';
 import type { Photo, PhotoStatus } from '@/types/database';
+import { evaluatePhotoSafety } from '@/lib/safety';
 
 export async function registerPhotoAction(
   rawInput: RegisterPhotoInput
@@ -65,9 +66,23 @@ export async function registerPhotoAction(
       };
     }
 
-    // 3. Determine initial status based on event moderation mode
-    const initialStatus: PhotoStatus =
-      event.moderation_mode === 'strict' ? 'pending' : 'approved';
+    // 3. Safety Evaluation (AI & NLP Filter)
+    const { data: publicUrlData } = supabase.storage
+      .from('event-photos')
+      .getPublicUrl(storagePath);
+
+    const safetyResult = await evaluatePhotoSafety({
+      uploaderName,
+      caption,
+      storagePath,
+      publicImageUrl: publicUrlData?.publicUrl,
+    });
+
+    // If event is strict, or if AI/safety flagged suspicious content -> hold in pending
+    let initialStatus: PhotoStatus = 'approved';
+    if (event.moderation_mode === 'strict' || !safetyResult.isSafe) {
+      initialStatus = 'pending';
+    }
 
     // 4. Insert Photo Record
     const { data: photo, error: insertError } = await supabase

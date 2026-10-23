@@ -277,7 +277,7 @@ function renderStandardA4Card(
 
   doc.fontSize(10)
     .fillColor('#71717a')
-    .text('KIT DE MESAS PERMANENTE • LIVE EVENT PHOTO WALL', 0, 55, {
+    .text('KIT DE MESAS PERMANENTE • QR IMÁGENES DINÁMICAS', 0, 55, {
       align: 'center',
       characterSpacing: 1.5,
     });

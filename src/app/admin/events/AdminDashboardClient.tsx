@@ -27,7 +27,9 @@ import {
   Layers,
   Clock,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
+import { logoutAdminAction } from '@/server/actions/auth';
 
 interface VenueWithStats extends Venue {
   totalTables: number;
@@ -212,14 +214,14 @@ export default function AdminDashboardClient({
             <span>Panel de Administración Central</span>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">
-            Live Event Photo Wall SaaS
+            QR Imágenes Dinámicas SaaS
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
             Gestión remota de salones, activación de fiestas y exportación de kits de QRs.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowVenueModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-sm border border-zinc-700 transition-all"
@@ -234,6 +236,14 @@ export default function AdminDashboardClient({
           >
             <Plus className="w-4 h-4" />
             <span>Crear Fiesta</span>
+          </button>
+
+          <button
+            onClick={() => logoutAdminAction()}
+            title="Cerrar sesión de administrador"
+            className="p-2.5 rounded-xl bg-zinc-900 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-500/30 transition-all"
+          >
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>

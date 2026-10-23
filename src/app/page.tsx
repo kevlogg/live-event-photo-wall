@@ -130,7 +130,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-zinc-900 py-6 text-center text-xs text-zinc-500">
-        © {new Date().getFullYear()} Live Event Photo Wall SaaS — Diseñado con Next.js App Router, TypeScript, Tailwind CSS y Supabase.
+        © {new Date().getFullYear()} QR Imágenes Dinámicas SaaS — Diseñado con Next.js App Router, TypeScript, Tailwind CSS y Supabase.
       </footer>
     </main>
   );

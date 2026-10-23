@@ -1,5 +1,5 @@
 -- ==============================================================================
--- LIVE EVENT PHOTO WALL: SCHEMA MIGRATION & RLS POLICIES
+-- QR IMÁGENES DINÁMICAS: SCHEMA MIGRATION & RLS POLICIES
 -- Multi-tenant by Venues with Permanent Physical Table QRs & Realtime Photo Wall
 -- ==============================================================================
 

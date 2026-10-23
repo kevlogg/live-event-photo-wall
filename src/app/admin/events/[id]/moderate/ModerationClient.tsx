@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { moderatePhotoAction } from '@/server/actions/photos';
@@ -19,6 +19,8 @@ import {
   Sparkles,
   EyeOff,
   RefreshCw,
+  Trophy,
+  Flame,
 } from 'lucide-react';
 
 interface ModerationClientProps {
@@ -41,7 +43,7 @@ export default function ModerationClient({
   const [currentMode, setCurrentMode] = useState<ModerationMode>(
     event.moderation_mode || 'auto_approve'
   );
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'ranking'>('pending');
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -88,7 +90,6 @@ export default function ModerationClient({
 
   // Handle Photo Moderation (Approve / Reject)
   const handleModerate = (photoId: string, status: 'approved' | 'rejected') => {
-    // Optimistic UI update
     setPhotos((prev) =>
       prev.map((p) => (p.id === photoId ? { ...p, status } : p))
     );
@@ -98,65 +99,59 @@ export default function ModerationClient({
       if (!res.success) {
         setToastMessage(`Error: ${res.error}`);
       } else {
-        setToastMessage(status === 'approved' ? 'Foto aprobada para proyector' : 'Foto ocultada');
-      }
-    });
-  };
-
-  // Handle Blocking a Table
-  const handleToggleBlockTable = (tableNumber: number) => {
-    const isCurrentlyBlocked = blockedTables.includes(tableNumber);
-    const actionBlock = !isCurrentlyBlocked;
-
-    if (
-      actionBlock &&
-      !window.confirm(
-        `¿Confirmas silenciar la Mesa #${tableNumber}? Se ocultarán todas sus fotos y no podrán subir más.`
-      )
-    ) {
-      return;
-    }
-
-    setBlockedTables((prev) =>
-      actionBlock ? [...prev, tableNumber] : prev.filter((t) => t !== tableNumber)
-    );
-
-    if (actionBlock) {
-      setPhotos((prev) =>
-        prev.map((p) => (p.table_number === tableNumber ? { ...p, status: 'rejected' } : p))
-      );
-    }
-
-    startTransition(async () => {
-      const res = await toggleTableBlockAction({
-        eventId: event.id,
-        tableNumber,
-        block: actionBlock,
-        reason: 'Bloqueado por moderador',
-      });
-      if (res.success) {
         setToastMessage(
-          actionBlock
-            ? `Mesa #${tableNumber} bloqueada y fotos ocultadas`
-            : `Mesa #${tableNumber} desbloqueada`
+          status === 'approved' ? 'Foto aprobada para pantalla' : 'Foto ocultada del proyector'
         );
       }
     });
   };
 
-  // Toggle Moderation Mode
-  const handleToggleMode = (newMode: ModerationMode) => {
-    setCurrentMode(newMode);
+  // Handle Toggle Table Block / Mute
+  const handleToggleBlockTable = (tableNumber: number) => {
+    const isCurrentlyBlocked = blockedTables.includes(tableNumber);
+    const newBlocked = isCurrentlyBlocked
+      ? blockedTables.filter((t) => t !== tableNumber)
+      : [...blockedTables, tableNumber];
+
+    setBlockedTables(newBlocked);
+
+    startTransition(async () => {
+      const res = await toggleTableBlockAction({
+        eventId: event.id,
+        tableNumber,
+        block: !isCurrentlyBlocked,
+        reason: !isCurrentlyBlocked ? 'Silenciada por moderador' : undefined,
+      });
+
+      if (!res.success) {
+        setToastMessage(`Error: ${res.error}`);
+        setBlockedTables(blockedTables);
+      } else {
+        setToastMessage(
+          !isCurrentlyBlocked
+            ? `Mesa #${tableNumber} silenciada. Ya no podrá subir fotos.`
+            : `Mesa #${tableNumber} reactivada.`
+        );
+      }
+    });
+  };
+
+  // Handle Toggle Event Moderation Mode
+  const handleToggleMode = (mode: ModerationMode) => {
+    setCurrentMode(mode);
     startTransition(async () => {
       const res = await updateModerationModeAction({
         eventId: event.id,
-        moderationMode: newMode,
+        moderationMode: mode,
       });
-      if (res.success) {
+
+      if (!res.success) {
+        setToastMessage(`Error: ${res.error}`);
+      } else {
         setToastMessage(
-          newMode === 'strict'
-            ? 'Modo Estricto activado: Cada foto requerirá aprobación manual'
-            : 'Modo Auto-Aprobación activado: Las fotos van directo a pantalla'
+          mode === 'auto_approve'
+            ? 'Modo Pase Libre: Las fotos se proyectan automáticamente.'
+            : 'Modo Estricto: Todas las fotos requieren aprobación manual.'
         );
       }
     });
@@ -173,47 +168,61 @@ export default function ModerationClient({
       ? approvedPhotos
       : rejectedPhotos;
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-6 min-h-screen flex flex-col justify-between">
-      <div>
-        {/* Navigation & Header */}
-        <header className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <Link
-              href="/admin/events"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Volver al Dashboard</span>
-            </Link>
+  // Calculate table leaderboard
+  const leaderboard = useMemo(() => {
+    const counts: Record<number, number> = {};
+    photos.forEach((p) => {
+      if (p.status === 'approved') {
+        counts[p.table_number] = (counts[p.table_number] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([table, count]) => ({ table: Number(table), count }))
+      .sort((a, b) => b.count - a.count);
+  }, [photos]);
 
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 min-h-screen flex flex-col justify-between">
+      <div>
+        {/* Navigation Bar */}
+        <div className="flex items-center justify-between mb-4">
+          <Link
+            href="/admin/events"
+            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Volver al Panel</span>
+          </Link>
+
+          <div className="flex items-center gap-2">
             <Link
               href={`/live/${event.id}`}
               target="_blank"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-300 text-xs font-bold hover:bg-purple-600/30 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold border border-zinc-700 transition-all"
             >
-              <Tv className="w-3.5 h-3.5" />
-              <span>Ver Proyector</span>
-              <ExternalLink className="w-3 h-3 ml-0.5 opacity-60" />
+              <Tv className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ver Live Wall</span>
+              <ExternalLink className="w-3 h-3 text-zinc-400" />
             </Link>
           </div>
+        </div>
 
-          <div className="glass-panel rounded-2xl p-4 sm:p-5 border-zinc-800">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                  {venueName}
-                </span>
-                <h1 className="text-2xl font-black text-white tracking-tight">{event.title}</h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-zinc-300 font-medium">
-                    Panel de Moderación en Vivo
-                  </span>
-                </div>
+        {/* Header Panel */}
+        <header className="glass-panel rounded-2xl p-4 sm:p-5 mb-6 border-zinc-800">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold text-zinc-400">{venueName}</span>
+                <span className="text-zinc-600">•</span>
+                <span className="text-xs text-brand-300 font-bold">{event.title}</span>
               </div>
+              <h1 className="text-2xl font-black text-white tracking-tight">
+                Centro de Moderación
+              </h1>
+            </div>
 
-              {/* Mode Toggle Switch */}
+            {/* Mode Toggle Switch */}
+            <div className="flex items-center gap-2">
               <div className="bg-zinc-900 border border-zinc-700/80 p-1.5 rounded-xl flex items-center gap-1">
                 <button
                   onClick={() => handleToggleMode('auto_approve')}
@@ -233,7 +242,7 @@ export default function ModerationClient({
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  Estricto (Aprobación)
+                  Estricto (Revisión)
                 </button>
               </div>
             </div>
@@ -246,15 +255,15 @@ export default function ModerationClient({
             <span>{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-zinc-400 hover:text-white ml-2"
+              className="text-zinc-400 hover:text-white ml-2 font-bold"
             >
               ×
             </button>
           </div>
         )}
 
-        {/* Tab Controls */}
-        <div className="grid grid-cols-3 gap-2 mb-6">
+        {/* Tab Controls (4 tabs including Ranking) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
           <button
             onClick={() => setActiveTab('pending')}
             className={`py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 border transition-all ${
@@ -299,10 +308,96 @@ export default function ModerationClient({
             </div>
             <span className="text-base font-extrabold">{rejectedPhotos.length}</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('ranking')}
+            className={`py-3 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 border transition-all ${
+              activeTab === 'ranking'
+                ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-lg'
+                : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:bg-zinc-800'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ranking Mesas</span>
+            </div>
+            <span className="text-base font-extrabold">{leaderboard.length} mesas</span>
+          </button>
         </div>
 
-        {/* Photos Grid */}
-        {displayedPhotos.length === 0 ? (
+        {/* Content Section: Photos vs Leaderboard */}
+        {activeTab === 'ranking' ? (
+          /* Ranking / Gamification View */
+          <div className="glass-panel rounded-2xl p-6 border-zinc-800">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                <span>Mesas Más Fiesteras del Evento</span>
+              </h3>
+              <span className="text-xs text-zinc-400">
+                {approvedPhotos.length} fotos proyectadas en total
+              </span>
+            </div>
+
+            {leaderboard.length === 0 ? (
+              <p className="text-center text-zinc-400 text-sm py-8">
+                Aún no hay fotos aprobadas para armar el podio.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {leaderboard.map((entry, idx) => {
+                  const isBlocked = blockedTables.includes(entry.table);
+                  const isLeader = idx === 0;
+
+                  return (
+                    <div
+                      key={entry.table}
+                      className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+                        isLeader
+                          ? 'bg-amber-500/10 border-amber-500/40'
+                          : 'bg-zinc-900/60 border-zinc-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
+                            isLeader
+                              ? 'bg-amber-500 text-black'
+                              : 'bg-zinc-800 text-zinc-300'
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <div>
+                          <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
+                            Mesa #{entry.table}
+                            {isLeader && <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                          </h4>
+                          <span className="text-xs text-zinc-400 font-medium">
+                            {entry.count} fotos proyectadas
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleBlockTable(entry.table)}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            isBlocked
+                              ? 'bg-red-600 text-white border-red-500'
+                              : 'bg-zinc-800 text-zinc-400 hover:text-red-400 border-zinc-700'
+                          }`}
+                        >
+                          {isBlocked ? 'Desbloquear' : 'Silenciar Mesa'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : displayedPhotos.length === 0 ? (
           <div className="glass-panel rounded-2xl p-8 text-center border-zinc-800">
             <ShieldCheck className="w-10 h-10 text-zinc-600 mx-auto mb-2" />
             <h3 className="text-base font-bold text-white mb-1">
@@ -332,40 +427,38 @@ export default function ModerationClient({
                       alt={`Foto de ${photo.uploader_name}`}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-white font-bold text-xs">
+
+                    {/* Table Badge */}
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                      <span className="px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-sm text-white text-[11px] font-bold border border-zinc-700">
                         Mesa #{photo.table_number}
                       </span>
                       {isTableBlocked && (
-                        <span className="px-2 py-0.5 rounded-md bg-red-600/90 text-white font-bold text-[10px] uppercase">
-                          Mesa Bloqueada
+                        <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                          Silenciada
                         </span>
                       )}
                     </div>
+
+                    {/* Time */}
+                    <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/70 text-zinc-400 text-[10px]">
+                      {new Date(photo.created_at).toLocaleTimeString('es-AR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
                   </div>
 
-                  {/* Metadata and Caption */}
-                  <div className="p-3">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-bold text-white truncate max-w-[140px]">
-                        {photo.uploader_name}
-                      </span>
-                      <span className="text-[11px] text-zinc-500">
-                        {new Date(photo.created_at).toLocaleTimeString('es-AR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                  <div className="p-3.5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-white">{photo.uploader_name}</p>
+                      {photo.caption && (
+                        <p className="text-xs text-amber-200 italic mt-0.5">&quot;{photo.caption}&quot;</p>
+                      )}
                     </div>
 
-                    {photo.caption && (
-                      <p className="text-xs text-brand-300 italic line-clamp-2 bg-brand-950/30 p-1.5 rounded-lg border border-brand-500/20 mb-2">
-                        &quot;{photo.caption}&quot;
-                      </p>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/80">
+                    {/* Actions */}
+                    <div className="mt-3 flex items-center gap-2 pt-2 border-t border-zinc-800">
                       {photo.status !== 'approved' && (
                         <button
                           onClick={() => handleModerate(photo.id, 'approved')}

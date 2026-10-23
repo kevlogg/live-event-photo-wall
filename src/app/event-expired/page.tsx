@@ -43,7 +43,7 @@ export default async function EventExpiredPage({ searchParams }: PageProps) {
       <div className="max-w-4xl mx-auto w-full my-8 sm:my-12">
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            <Sparkles className="w-3.5 h-3.5 text-brand-400" /> Live Event Photo Wall
+            <Sparkles className="w-3.5 h-3.5 text-brand-400" /> QR Imágenes Dinámicas
           </div>
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
             ¿Querés esta experiencia mágica en <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-amber-300">tu fiesta o boda</span>?
@@ -128,7 +128,7 @@ export default async function EventExpiredPage({ searchParams }: PageProps) {
 
       {/* Footer */}
       <footer className="text-center text-xs text-zinc-600 py-4 border-t border-zinc-900">
-        © {new Date().getFullYear()} Live Event Photo Wall SaaS — Gestión Remota Multitenant.
+        © {new Date().getFullYear()} QR Imágenes Dinámicas SaaS — Gestión Remota Multitenant.
       </footer>
     </main>
   );

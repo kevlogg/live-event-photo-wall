@@ -1,4 +1,4 @@
-# Live Event Photo Wall SaaS
+# QR Imágenes Dinámicas SaaS
 
 Plataforma SaaS de fotos en vivo para salones y eventos con gestión 100% remota, arquitectura Multitenant por Salones/Venues y exportación de PDFs Master por Salón.
 
@@ -17,7 +17,7 @@ Plataforma SaaS de fotos en vivo para salones y eventos con gestión 100% remota
 ## 📁 Topología del Proyecto
 
 ```text
-C:\development\live-event-photo-wall\
+C:\development\qr-imagenes-dinamicas\
 ├── src\
 │   ├── app\
 │   │   ├── (marketing)\
@@ -76,7 +76,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 ### 2. Migración de Base de Datos
-Ejecuta el archivo [20261022_initial_schema.sql](file:///C:/development/live-event-photo-wall/supabase/migrations/20261022_initial_schema.sql) en el **SQL Editor** de tu consola de Supabase. Esto creará:
+Ejecuta el archivo [20261022_initial_schema.sql](file:///C:/development/qr-imagenes-dinamicas/supabase/migrations/20261022_initial_schema.sql) en el **SQL Editor** de tu consola de Supabase. Esto creará:
 - Tablas `venues`, `physical_tables`, `events` y `photos`.
 - Bucket de Storage `event-photos`.
 - Políticas RLS y publicación en `supabase_realtime`.
