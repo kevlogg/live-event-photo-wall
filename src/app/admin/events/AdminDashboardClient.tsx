@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import {
   createVenueAction,
@@ -76,6 +76,13 @@ export default function AdminDashboardClient({
   const [eventIsActive, setEventIsActive] = useState<boolean>(true);
   const [eventModerationMode, setEventModerationMode] = useState<'auto_approve' | 'strict'>('auto_approve');
 
+  // Keep selectedVenueId in sync whenever venues changes
+  useEffect(() => {
+    if ((!selectedVenueId || !venues.some((v) => v.id === selectedVenueId)) && venues.length > 0) {
+      setSelectedVenueId(venues[0].id);
+    }
+  }, [venues, selectedVenueId]);
+
   // Toggle Event Status
   const handleToggleEventStatus = (eventId: string, currentStatus: boolean) => {
     startTransition(async () => {
@@ -138,6 +145,7 @@ export default function AdminDashboardClient({
       if (!res.success || !res.data) {
         setNotification({ type: 'error', message: res.error || 'Error al crear salón' });
       } else {
+        const newVenueId = res.data!.venueId;
         setNotification({
           type: 'success',
           message: `Salón "${venueName}" creado con ${venueTables} mesas y QRs generados`,
@@ -145,13 +153,14 @@ export default function AdminDashboardClient({
         setVenues((prev) => [
           ...prev,
           {
-            id: res.data!.venueId,
+            id: newVenueId,
             name: venueName,
             slug: res.data!.slug,
             totalTables: res.data!.totalTables,
             created_at: new Date().toISOString(),
           },
         ]);
+        setSelectedVenueId(newVenueId);
         setVenueName('');
         setVenueSlug('');
         setShowVenueModal(false);
@@ -163,13 +172,19 @@ export default function AdminDashboardClient({
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     startTransition(async () => {
+      const targetVenueId = selectedVenueId || venues[0]?.id;
+      if (!targetVenueId) {
+        setNotification({ type: 'error', message: 'Primero debés seleccionar o crear un salón' });
+        return;
+      }
+
       if (!eventStartTime || !eventEndTime) {
         setNotification({ type: 'error', message: 'Completá las fechas de inicio y fin' });
         return;
       }
 
       const res = await createEventAction({
-        venueId: selectedVenueId,
+        venueId: targetVenueId,
         title: eventTitle,
         startTime: new Date(eventStartTime).toISOString(),
         endTime: new Date(eventEndTime).toISOString(),
@@ -181,7 +196,7 @@ export default function AdminDashboardClient({
       if (!res.success || !res.data) {
         setNotification({ type: 'error', message: res.error || 'Error al programar fiesta' });
       } else {
-        const venue = venues.find((v) => v.id === selectedVenueId);
+        const venue = venues.find((v) => v.id === targetVenueId);
         setNotification({
           type: 'success',
           message: `Fiesta "${eventTitle}" creada exitosamente`,
@@ -190,7 +205,7 @@ export default function AdminDashboardClient({
           {
             ...res.data!,
             venue: {
-              id: venue?.id || selectedVenueId,
+              id: venue?.id || targetVenueId,
               name: venue?.name || 'Salón',
               slug: venue?.slug || 'salon',
             },
@@ -648,7 +663,7 @@ export default function AdminDashboardClient({
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 mb-1">Salón</label>
                 <select
-                  value={selectedVenueId}
+                  value={selectedVenueId || venues[0]?.id || ''}
                   onChange={(e) => setSelectedVenueId(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
                 >
