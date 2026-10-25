@@ -157,7 +157,7 @@ export default function AdminDashboardClient({
 
   // QR Customizer Modal State
   const [customizingVenue, setCustomizingVenue] = useState<VenueWithStats | null>(null);
-  const [customFormat, setCustomFormat] = useState<'a4' | 'tent' | 'mini'>('a4');
+  const [customFormat, setCustomFormat] = useState<'a4' | 'tent' | 'mini' | 'grid4'>('a4');
   const [customBgColor, setCustomBgColor] = useState<string>('#ffffff');
   const [customAccentColor, setCustomAccentColor] = useState<string>('#7c3aed');
   const [customTextColor, setCustomTextColor] = useState<string>('#18181b');
@@ -165,7 +165,10 @@ export default function AdminDashboardClient({
   const [customSubtextColor, setCustomSubtextColor] = useState<string>('#52525b');
   const [selectedPresetId, setSelectedPresetId] = useState<string>('neon');
 
-  const handleOpenCustomizer = (venue: VenueWithStats, format: 'a4' | 'tent' | 'mini' = 'a4') => {
+  const handleOpenCustomizer = (
+    venue: VenueWithStats,
+    format: 'a4' | 'tent' | 'mini' | 'grid4' = 'a4'
+  ) => {
     setCustomizingVenue(venue);
     setCustomFormat(format);
   };
@@ -654,26 +657,33 @@ export default function AdminDashboardClient({
 
                 <div className="flex items-center justify-between text-[11px] text-zinc-400 px-0.5">
                   <span>Formatos de imprenta:</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold">4 formatos</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   <button
                     onClick={() => handleOpenCustomizer(venue, 'a4')}
-                    className="py-1.5 px-2 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 text-center text-xs font-semibold border border-zinc-700 transition-all cursor-pointer"
+                    className="py-1.5 px-1.5 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 text-center text-[11px] font-semibold border border-zinc-700 transition-all cursor-pointer"
                   >
                     Estándar A4
                   </button>
                   <button
                     onClick={() => handleOpenCustomizer(venue, 'tent')}
-                    className="py-1.5 px-2 rounded-lg bg-brand-600/20 hover:bg-brand-600/40 text-brand-300 text-center text-xs font-semibold border border-brand-500/40 transition-all cursor-pointer"
+                    className="py-1.5 px-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/40 text-brand-300 text-center text-[11px] font-semibold border border-brand-500/40 transition-all cursor-pointer"
                   >
                     Carpa Mesa
                   </button>
                   <button
                     onClick={() => handleOpenCustomizer(venue, 'mini')}
-                    className="py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-center text-xs font-semibold border border-amber-500/30 transition-all cursor-pointer"
+                    className="py-1.5 px-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-center text-[11px] font-semibold border border-amber-500/30 transition-all cursor-pointer"
                   >
                     Mini 10x15
+                  </button>
+                  <button
+                    onClick={() => handleOpenCustomizer(venue, 'grid4')}
+                    className="py-1.5 px-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-center text-[11px] font-semibold border border-emerald-500/30 transition-all cursor-pointer"
+                  >
+                    4 por Hoja
                   </button>
                 </div>
               </div>
@@ -939,7 +949,7 @@ export default function AdminDashboardClient({
                   <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
                     1. Formato de Impresión
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button
                       type="button"
                       onClick={() => setCustomFormat('a4')}
@@ -977,6 +987,24 @@ export default function AdminDashboardClient({
                     >
                       <div className="text-xs font-bold text-white">Mini 10x15</div>
                       <div className="text-[10px] text-zinc-400 mt-0.5">Para acrílicos</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCustomFormat('grid4')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        customFormat === 'grid4'
+                          ? 'bg-emerald-600/20 border-emerald-500 text-white shadow-md shadow-emerald-500/10'
+                          : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold text-white">4 por Hoja</div>
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1 py-0.5 rounded font-semibold border border-emerald-500/30">
+                          -75%
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">2x2 A4 con cortes</div>
                     </button>
                   </div>
                 </div>
@@ -1166,136 +1194,210 @@ export default function AdminDashboardClient({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      Vista Previa en Vivo (Mesa #1)
+                      Vista Previa en Vivo {customFormat === 'grid4' ? '(Hoja A4 - 4 Mesas)' : '(Mesa #1)'}
                     </span>
                     <span className="text-[10px] text-brand-400 font-semibold bg-brand-500/10 px-2 py-0.5 rounded-full border border-brand-500/20">
-                      {customFormat === 'a4' ? 'A4 Vertical' : customFormat === 'tent' ? 'Carpa Plegable' : 'Mini 10x15'}
+                      {customFormat === 'a4'
+                        ? 'A4 Vertical'
+                        : customFormat === 'tent'
+                        ? 'Carpa Plegable'
+                        : customFormat === 'mini'
+                        ? 'Mini 10x15'
+                        : '4 por Hoja (A6)'}
                     </span>
                   </div>
 
                   {/* Card Simulation */}
-                  <div
-                    className="rounded-2xl p-4 transition-all duration-300 shadow-xl border relative overflow-hidden flex flex-col justify-between text-center select-none"
-                    style={{
-                      backgroundColor: customBgColor,
-                      borderColor: customAccentColor,
-                      minHeight: customFormat === 'tent' ? '380px' : '340px',
-                    }}
-                  >
-                    {/* Inner subtle frame */}
+                  {customFormat === 'grid4' ? (
+                    /* 2x2 Grid Preview for 4 per sheet */
                     <div
-                      className="absolute inset-1.5 rounded-xl pointer-events-none border opacity-40"
+                      className="rounded-2xl p-2.5 transition-all duration-300 shadow-xl border relative overflow-hidden select-none bg-zinc-950"
                       style={{ borderColor: customAccentColor }}
-                    />
+                    >
+                      <div className="grid grid-cols-2 gap-2 relative">
+                        {/* Dashed cut lines indicator */}
+                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                          <div className="w-full border-t border-dashed border-zinc-500/60" />
+                        </div>
+                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                          <div className="h-full border-l border-dashed border-zinc-500/60" />
+                        </div>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 px-1.5 py-0.5 rounded text-[8px] text-zinc-400 font-mono border border-zinc-700 pointer-events-none z-20">
+                          ✂ CORTE
+                        </div>
 
-                    {/* Top Section */}
-                    <div className="relative z-10 pt-1">
-                      <div
-                        className="text-[9px] font-bold uppercase tracking-widest truncate px-2"
-                        style={{ color: customSubtextColor }}
-                      >
-                        {customizingVenue.name}
+                        {[1, 2, 3, 4].map((num) => (
+                          <div
+                            key={num}
+                            className="rounded-xl p-2 flex flex-col items-center justify-between text-center relative border"
+                            style={{
+                              backgroundColor: customBgColor,
+                              borderColor: customAccentColor,
+                              minHeight: '160px',
+                            }}
+                          >
+                            <div
+                              className="text-[8px] font-bold uppercase tracking-tight truncate w-full"
+                              style={{ color: customSubtextColor }}
+                            >
+                              {customizingVenue.name}
+                            </div>
+                            <div
+                              className="px-2 py-0.5 rounded-full text-[9px] font-black tracking-wide my-1"
+                              style={{
+                                backgroundColor: customAccentColor,
+                                color: customBadgeTextColor,
+                              }}
+                            >
+                              MESA #{num}
+                            </div>
+                            <div
+                              className="p-1.5 rounded-lg bg-white shadow-sm border"
+                              style={{ borderColor: customAccentColor }}
+                            >
+                              <div className="w-12 h-12 bg-zinc-900 rounded flex items-center justify-center text-[7px] text-white font-mono">
+                                QR #{num}
+                              </div>
+                            </div>
+                            <div
+                              className="text-[8px] font-bold mt-1"
+                              style={{ color: customTextColor }}
+                            >
+                              ¡FOTOS EN VIVO!
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    </div>
+                  ) : (
+                    /* Single Card Simulation (A4, Tent, Mini) */
+                    <div
+                      className="rounded-2xl p-4 transition-all duration-300 shadow-xl border relative overflow-hidden flex flex-col justify-between text-center select-none"
+                      style={{
+                        backgroundColor: customBgColor,
+                        borderColor: customAccentColor,
+                        minHeight: customFormat === 'tent' ? '380px' : customFormat === 'mini' ? '330px' : '360px',
+                      }}
+                    >
+                      {/* Inner subtle frame */}
+                      <div
+                        className="absolute inset-1.5 rounded-xl pointer-events-none border opacity-40"
+                        style={{ borderColor: customAccentColor }}
+                      />
 
-                      {/* Badge Mesa */}
-                      <div className="flex justify-center my-2">
+                      {/* Top Section */}
+                      <div className="relative z-10 pt-1">
                         <div
-                          className="px-4 py-1 rounded-full text-xs font-black tracking-wide shadow-md transition-all"
-                          style={{
-                            backgroundColor: customAccentColor,
-                            color: customBadgeTextColor,
-                          }}
+                          className="text-[9px] font-bold uppercase tracking-widest truncate px-2"
+                          style={{ color: customSubtextColor }}
                         >
-                          MESA #1
+                          {customizingVenue.name}
+                        </div>
+
+                        {/* Badge Mesa - Centered */}
+                        <div className="flex justify-center my-2">
+                          <div
+                            className="px-4 py-1 rounded-full text-xs font-black tracking-wide shadow-md transition-all"
+                            style={{
+                              backgroundColor: customAccentColor,
+                              color: customBadgeTextColor,
+                            }}
+                          >
+                            MESA #1
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* QR Code Simulation (Center) */}
-                    <div className="relative z-10 flex flex-col items-center my-1">
-                      {/* White Plaque behind QR */}
-                      <div
-                        className="p-2.5 rounded-xl bg-white shadow-lg border transition-all"
-                        style={{ borderColor: customAccentColor }}
-                      >
-                        <svg
-                          className="w-24 h-24 sm:w-28 sm:h-28 text-zinc-950"
-                          viewBox="0 0 100 100"
-                          fill="currentColor"
+                      {/* QR Code Simulation (Center) */}
+                      <div className="relative z-10 flex flex-col items-center my-1">
+                        {/* White Plaque behind QR */}
+                        <div
+                          className="p-2.5 rounded-xl bg-white shadow-lg border transition-all"
+                          style={{ borderColor: customAccentColor }}
                         >
-                          {/* Top-left marker */}
-                          <rect x="5" y="5" width="28" height="28" rx="4" fill="currentColor" />
-                          <rect x="9" y="9" width="20" height="20" rx="2" fill="white" />
-                          <rect x="13" y="13" width="12" height="12" rx="1" fill="currentColor" />
+                          <svg
+                            className="w-24 h-24 sm:w-28 sm:h-28 text-zinc-950"
+                            viewBox="0 0 100 100"
+                            fill="currentColor"
+                          >
+                            {/* Top-left marker */}
+                            <rect x="5" y="5" width="28" height="28" rx="4" fill="currentColor" />
+                            <rect x="9" y="9" width="20" height="20" rx="2" fill="white" />
+                            <rect x="13" y="13" width="12" height="12" rx="1" fill="currentColor" />
 
-                          {/* Top-right marker */}
-                          <rect x="67" y="5" width="28" height="28" rx="4" fill="currentColor" />
-                          <rect x="71" y="9" width="20" height="20" rx="2" fill="white" />
-                          <rect x="75" y="13" width="12" height="12" rx="1" fill="currentColor" />
+                            {/* Top-right marker */}
+                            <rect x="67" y="5" width="28" height="28" rx="4" fill="currentColor" />
+                            <rect x="71" y="9" width="20" height="20" rx="2" fill="white" />
+                            <rect x="75" y="13" width="12" height="12" rx="1" fill="currentColor" />
 
-                          {/* Bottom-left marker */}
-                          <rect x="5" y="67" width="28" height="28" rx="4" fill="currentColor" />
-                          <rect x="9" y="71" width="20" height="20" rx="2" fill="white" />
-                          <rect x="13" y="75" width="12" height="12" rx="1" fill="currentColor" />
+                            {/* Bottom-left marker */}
+                            <rect x="5" y="67" width="28" height="28" rx="4" fill="currentColor" />
+                            <rect x="9" y="71" width="20" height="20" rx="2" fill="white" />
+                            <rect x="13" y="75" width="12" height="12" rx="1" fill="currentColor" />
 
-                          {/* QR Mock Data Points */}
-                          <rect x="38" y="10" width="6" height="6" fill="currentColor" />
-                          <rect x="48" y="10" width="6" height="6" fill="currentColor" />
-                          <rect x="58" y="10" width="6" height="6" fill="currentColor" />
-                          <rect x="38" y="22" width="6" height="6" fill="currentColor" />
-                          <rect x="52" y="22" width="6" height="6" fill="currentColor" />
-                          <rect x="10" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="22" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="34" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="46" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="64" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="76" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="88" y="40" width="6" height="6" fill="currentColor" />
-                          <rect x="40" y="52" width="6" height="6" fill="currentColor" />
-                          <rect x="54" y="52" width="6" height="6" fill="currentColor" />
-                          <rect x="68" y="52" width="6" height="6" fill="currentColor" />
-                          <rect x="40" y="66" width="6" height="6" fill="currentColor" />
-                          <rect x="54" y="66" width="6" height="6" fill="currentColor" />
-                          <rect x="70" y="66" width="6" height="6" fill="currentColor" />
-                          <rect x="84" y="66" width="6" height="6" fill="currentColor" />
-                          <rect x="40" y="80" width="6" height="6" fill="currentColor" />
-                          <rect x="58" y="80" width="6" height="6" fill="currentColor" />
-                          <rect x="72" y="80" width="6" height="6" fill="currentColor" />
-                          <rect x="86" y="80" width="6" height="6" fill="currentColor" />
-                        </svg>
+                            {/* QR Mock Data Points */}
+                            <rect x="38" y="10" width="6" height="6" fill="currentColor" />
+                            <rect x="48" y="10" width="6" height="6" fill="currentColor" />
+                            <rect x="58" y="10" width="6" height="6" fill="currentColor" />
+                            <rect x="38" y="22" width="6" height="6" fill="currentColor" />
+                            <rect x="52" y="22" width="6" height="6" fill="currentColor" />
+                            <rect x="10" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="22" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="34" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="46" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="64" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="76" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="88" y="40" width="6" height="6" fill="currentColor" />
+                            <rect x="40" y="52" width="6" height="6" fill="currentColor" />
+                            <rect x="54" y="52" width="6" height="6" fill="currentColor" />
+                            <rect x="68" y="52" width="6" height="6" fill="currentColor" />
+                            <rect x="40" y="66" width="6" height="6" fill="currentColor" />
+                            <rect x="54" y="66" width="6" height="6" fill="currentColor" />
+                            <rect x="70" y="66" width="6" height="6" fill="currentColor" />
+                            <rect x="84" y="66" width="6" height="6" fill="currentColor" />
+                            <rect x="40" y="80" width="6" height="6" fill="currentColor" />
+                            <rect x="58" y="80" width="6" height="6" fill="currentColor" />
+                            <rect x="72" y="80" width="6" height="6" fill="currentColor" />
+                            <rect x="86" y="80" width="6" height="6" fill="currentColor" />
+                          </svg>
+                        </div>
                       </div>
+
+                      {/* Bottom Instructions */}
+                      <div className="relative z-10 space-y-1 pb-1">
+                        <div
+                          className="text-[11px] font-black tracking-tight"
+                          style={{ color: customTextColor }}
+                        >
+                          ¡COMPARTÍ TUS FOTOS EN PANTALLA!
+                        </div>
+                        <div
+                          className="text-[9px] leading-tight"
+                          style={{ color: customSubtextColor }}
+                        >
+                          1. Escaneá con tu celular • 2. Sacá tu foto • 3. En vivo en la fiesta
+                        </div>
+                      </div>
+
+                      {/* If Tent, show dotted fold line indicator */}
+                      {customFormat === 'tent' && (
+                        <div className="absolute inset-x-0 bottom-0 bg-black/10 border-t border-dashed border-zinc-400 py-1 text-[8px] text-zinc-500 font-mono">
+                          --- LÍNEA DE PLIEGUE CENTRAL (DOBLAR AQUÍ) ---
+                        </div>
+                      )}
                     </div>
-
-                    {/* Bottom Instructions */}
-                    <div className="relative z-10 space-y-1 pb-1">
-                      <div
-                        className="text-[11px] font-black tracking-tight"
-                        style={{ color: customTextColor }}
-                      >
-                        ¡COMPARTÍ TUS FOTOS EN PANTALLA!
-                      </div>
-                      <div
-                        className="text-[9px] leading-tight"
-                        style={{ color: customSubtextColor }}
-                      >
-                        1. Escaneá con tu celular • 2. Sacá tu foto • 3. En vivo en la fiesta
-                      </div>
-                    </div>
-
-                    {/* If Tent, show dotted fold line indicator */}
-                    {customFormat === 'tent' && (
-                      <div className="absolute inset-x-0 bottom-0 bg-black/10 border-t border-dashed border-zinc-400 py-1 text-[8px] text-zinc-500 font-mono">
-                        --- LÍNEA DE PLIEGUE CENTRAL (DOBLAR AQUÍ) ---
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Print Info Callout */}
                 <div className="mt-4 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-400 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Printer className="w-4 h-4 text-brand-400 flex-shrink-0" />
-                    <span>Se generará un PDF de {customizingVenue.totalTables || 30} páginas vectoriales.</span>
+                    <span>
+                      {customFormat === 'grid4'
+                        ? `Se generará un PDF de ${Math.ceil((customizingVenue.totalTables || 30) / 4)} hojas A4 (4 mesas por hoja con guías de corte ✂).`
+                        : `Se generará un PDF de ${customizingVenue.totalTables || 30} páginas vectoriales.`}
+                    </span>
                   </div>
                   <span className="text-zinc-500 font-mono">300 DPI</span>
                 </div>
@@ -1320,7 +1422,15 @@ export default function AdminDashboardClient({
               >
                 <Download className="w-4 h-4" />
                 <span>
-                  Descargar PDF Master ({customFormat === 'a4' ? 'Estándar A4' : customFormat === 'tent' ? 'Carpa Mesa' : 'Mini 10x15'})
+                  Descargar PDF Master (
+                  {customFormat === 'a4'
+                    ? 'Estándar A4'
+                    : customFormat === 'tent'
+                    ? 'Carpa Mesa'
+                    : customFormat === 'mini'
+                    ? 'Mini 10x15'
+                    : '4 por Hoja A4'}
+                  )
                 </span>
               </a>
             </div>
