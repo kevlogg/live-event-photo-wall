@@ -1381,8 +1381,8 @@ export default function AdminDashboardClient({
 
                       {/* If Tent, show dotted fold line indicator */}
                       {customFormat === 'tent' && (
-                        <div className="absolute inset-x-0 bottom-0 bg-black/10 border-t border-dashed border-zinc-400 py-1 text-[8px] text-zinc-500 font-mono">
-                          --- LÍNEA DE PLIEGUE CENTRAL (DOBLAR AQUÍ) ---
+                        <div className="absolute inset-x-0 bottom-0 bg-black/20 border-t border-dashed border-zinc-400 py-1 text-[8px] text-zinc-400 font-mono">
+                          ✂ LÍNEA DE PLIEGUE CENTRAL (CARA SUPERIOR INVERTIDA 180°)
                         </div>
                       )}
                     </div>
@@ -1393,11 +1393,18 @@ export default function AdminDashboardClient({
                 <div className="mt-4 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-400 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Printer className="w-4 h-4 text-brand-400 flex-shrink-0" />
-                    <span>
-                      {customFormat === 'grid4'
-                        ? `Se generará un PDF de ${Math.ceil((customizingVenue.totalTables || 30) / 4)} hojas A4 (4 mesas por hoja con guías de corte ✂).`
-                        : `Se generará un PDF de ${customizingVenue.totalTables || 30} páginas vectoriales.`}
-                    </span>
+                    <div>
+                      <span>
+                        {customFormat === 'grid4'
+                          ? `Se generará un PDF de ${Math.ceil((customizingVenue.totalTables || 30) / 4)} hojas A4 (4 mesas por hoja con guías de corte ✂).`
+                          : `Se generará un PDF de ${customizingVenue.totalTables || 30} páginas vectoriales.`}
+                      </span>
+                      {customFormat === 'tent' && (
+                        <span className="block text-[10px] text-brand-300 mt-0.5">
+                          ✓ Cara superior invertida 180° automáticamente: ambas caras quedan perfectamente al derecho al doblar la carpa.
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-zinc-500 font-mono">300 DPI</span>
                 </div>

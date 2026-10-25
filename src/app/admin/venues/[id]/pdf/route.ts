@@ -197,9 +197,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
               if (isTent) {
                 // TABLE TENT FORMAT (Folding Card - 2 identical sides on 1 page)
+                // Side 1 (Top half) is rotated 180° so that when folded along the center,
+                // BOTH sides face upright for guests on opposite sides of the table.
                 const halfHeight = doc.page.height / 2;
 
-                // Render Side 1 (Top half)
+                // Render Side 1 (Top half, rotated 180°)
+                doc.save();
+                doc.rotate(180, { origin: [doc.page.width / 2, halfHeight / 2] });
                 renderTableCard(doc, {
                   venueName: venue.name,
                   tableNumber: table.table_number,
@@ -209,6 +213,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                   cardHeight: halfHeight - 40,
                   design,
                 });
+                doc.restore();
 
                 // Fold dotted line
                 const foldLineColor = design.isDark ? '#52525b' : '#a1a1aa';
@@ -228,7 +233,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     characterSpacing: 0.5,
                   });
 
-                // Render Side 2 (Bottom half)
+                // Render Side 2 (Bottom half, standard orientation)
                 renderTableCard(doc, {
                   venueName: venue.name,
                   tableNumber: table.table_number,
