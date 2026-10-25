@@ -10,7 +10,11 @@ export const dynamic = 'force-dynamic';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('from') || '/admin/events';
+  const fromParam = searchParams.get('from');
+  const redirectTo =
+    fromParam && fromParam !== '/admin' && fromParam !== '/admin/'
+      ? fromParam
+      : '/admin/events';
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
