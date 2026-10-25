@@ -105,168 +105,190 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
 
   // 3. Generate PDF Document using PDFKit with ZERO margin for exact mathematical centering
-  const pdfBuffer = await new Promise<Buffer>(async (resolve, reject) => {
-    const isMini = format === 'mini';
-    const isTent = format === 'tent';
-    const isGrid4 = format === 'grid4' || format === 'multi';
+  try {
+    const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const isMini = format === 'mini';
+      const isTent = format === 'tent';
+      const isGrid4 = format === 'grid4' || format === 'multi';
 
-    const pageSize = isMini ? [283.46, 425.2] : 'A4'; // [100mm, 150mm] in points or A4
-    const doc = new PDFDocument({
-      size: pageSize,
-      margin: 0,
-      autoFirstPage: false,
+      const pageSize = isMini ? [283.46, 425.2] : 'A4'; // [100mm, 150mm] in points or A4
+      const doc = new PDFDocument({
+        size: pageSize,
+        margin: 0,
+        autoFirstPage: false,
+      });
+
+      const buffers: Buffer[] = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
+
+      (async () => {
+        try {
+          if (isGrid4) {
+            // 4 TABLES PER A4 SHEET (2x2 Grid with cutting guidelines)
+            for (let i = 0; i < tables.length; i += 4) {
+              doc.addPage({ size: 'A4', margin: 0 });
+              const W = doc.page.width;
+              const H = doc.page.height;
+              const cellW = W / 2; // 297.64
+              const cellH = H / 2; // 420.94
+
+              doc.rect(0, 0, W, H).fillColor(design.bgColor).fill();
+
+              const chunk = tables.slice(i, i + 4);
+              for (let j = 0; j < chunk.length; j++) {
+                const table = chunk[j];
+                const col = j % 2;
+                const row = Math.floor(j / 2);
+                const originX = col * cellW;
+                const originY = row * cellH;
+
+                const qrTargetUrl = `${baseUrl}/q/${table.token_hash}`;
+                const qrImageBuffer = await QRCode.toBuffer(qrTargetUrl, {
+                  width: 400,
+                  margin: 1,
+                  color: { dark: '#09090b', light: '#ffffff' },
+                  errorCorrectionLevel: 'H',
+                });
+
+                renderQuadrantCard(doc, {
+                  venueName: venue.name,
+                  tableNumber: table.table_number,
+                  qrBuffer: qrImageBuffer,
+                  originX,
+                  originY,
+                  cellW,
+                  cellH,
+                  design,
+                });
+              }
+
+              // Draw Cutting Guides (dashed line with scissors)
+              const cutColor = design.isDark ? '#52525b' : '#a1a1aa';
+              doc.dash(4, { space: 4 }).lineWidth(0.75).strokeColor(cutColor);
+
+              // Vertical cut line
+              doc.moveTo(cellW, 10).lineTo(cellW, H - 10).stroke();
+
+              // Horizontal cut line
+              doc.moveTo(10, cellH).lineTo(W - 10, cellH).stroke();
+
+              doc.undash();
+              doc.fontSize(7).fillColor(cutColor)
+                .text('✂ CORTE', cellW + 4, cellH - 10, { lineBreak: false });
+            }
+          } else {
+            // 1 TABLE PER SHEET / CARD
+            for (let i = 0; i < tables.length; i++) {
+              const table = tables[i];
+              doc.addPage();
+
+              // Paint entire page background
+              doc.rect(0, 0, doc.page.width, doc.page.height).fillColor(design.bgColor).fill();
+
+              const qrTargetUrl = `${baseUrl}/q/${table.token_hash}`;
+              const qrImageBuffer = await QRCode.toBuffer(qrTargetUrl, {
+                width: 600,
+                margin: 1,
+                color: { dark: '#09090b', light: '#ffffff' },
+                errorCorrectionLevel: 'H',
+              });
+
+              if (isTent) {
+                // TABLE TENT FORMAT (Folding Card - 2 identical sides on 1 page)
+                const halfHeight = doc.page.height / 2;
+
+                // Render Side 1 (Top half)
+                renderTableCard(doc, {
+                  venueName: venue.name,
+                  tableNumber: table.table_number,
+                  totalTables: tables.length,
+                  qrBuffer: qrImageBuffer,
+                  yOffset: 20,
+                  cardHeight: halfHeight - 40,
+                  design,
+                });
+
+                // Fold dotted line
+                const foldLineColor = design.isDark ? '#52525b' : '#a1a1aa';
+                doc.dash(4, { space: 4 })
+                  .moveTo(25, halfHeight)
+                  .lineTo(doc.page.width - 25, halfHeight)
+                  .lineWidth(1)
+                  .strokeColor(foldLineColor)
+                  .stroke();
+
+                doc.undash();
+                doc.fontSize(7.5)
+                  .fillColor(foldLineColor)
+                  .text('✂ LÍNEA DE PLIEGUE CENTRAL (DOBLAR AQUÍ) ✂', 0, halfHeight - 9, {
+                    width: doc.page.width,
+                    align: 'center',
+                    characterSpacing: 0.5,
+                  });
+
+                // Render Side 2 (Bottom half)
+                renderTableCard(doc, {
+                  venueName: venue.name,
+                  tableNumber: table.table_number,
+                  totalTables: tables.length,
+                  qrBuffer: qrImageBuffer,
+                  yOffset: halfHeight + 20,
+                  cardHeight: halfHeight - 40,
+                  design,
+                });
+              } else if (isMini) {
+                // MINI ACRYLIC STAND FORMAT (10x15cm) - PROPORTIONAL & ZERO WASTED SPACE
+                renderMiniCard(doc, {
+                  venueName: venue.name,
+                  tableNumber: table.table_number,
+                  qrBuffer: qrImageBuffer,
+                  design,
+                });
+              } else {
+                // STANDARD A4 FORMAT
+                renderStandardA4Card(doc, {
+                  venueName: venue.name,
+                  tableNumber: table.table_number,
+                  totalTables: tables.length,
+                  qrBuffer: qrImageBuffer,
+                  design,
+                });
+              }
+            }
+          }
+
+          doc.end();
+        } catch (renderError) {
+          reject(renderError);
+        }
+      })();
     });
 
-    const buffers: Buffer[] = [];
-    doc.on('data', buffers.push.bind(buffers));
-    doc.on('end', () => resolve(Buffer.concat(buffers)));
-    doc.on('error', reject);
+    const filename = `Master-QRs-${venue.slug}-${format}${tableFilter ? `-mesa-${tableFilter}` : ''}.pdf`;
 
-    if (isGrid4) {
-      // 4 TABLES PER A4 SHEET (2x2 Grid with cutting guidelines)
-      const cellW = doc.page.width / 2; // 297.64
-      const cellH = doc.page.height / 2; // 420.94
-
-      for (let i = 0; i < tables.length; i += 4) {
-        doc.addPage();
-        doc.rect(0, 0, doc.page.width, doc.page.height).fillColor(design.bgColor).fill();
-
-        const chunk = tables.slice(i, i + 4);
-        for (let j = 0; j < chunk.length; j++) {
-          const table = chunk[j];
-          const col = j % 2;
-          const row = Math.floor(j / 2);
-          const originX = col * cellW;
-          const originY = row * cellH;
-
-          const qrTargetUrl = `${baseUrl}/q/${table.token_hash}`;
-          const qrImageBuffer = await QRCode.toBuffer(qrTargetUrl, {
-            width: 500,
-            margin: 1,
-            color: { dark: '#09090b', light: '#ffffff' },
-            errorCorrectionLevel: 'H',
-          });
-
-          renderQuadrantCard(doc, {
-            venueName: venue.name,
-            tableNumber: table.table_number,
-            qrBuffer: qrImageBuffer,
-            originX,
-            originY,
-            cellW,
-            cellH,
-            design,
-          });
-        }
-
-        // Draw Cutting Guides (dashed line with scissors)
-        const cutColor = design.isDark ? '#52525b' : '#a1a1aa';
-        doc.dash(4, { space: 4 }).lineWidth(0.75).strokeColor(cutColor);
-
-        // Vertical cut line
-        doc.moveTo(cellW, 10).lineTo(cellW, doc.page.height - 10).stroke();
-
-        // Horizontal cut line
-        doc.moveTo(10, cellH).lineTo(doc.page.width - 10, cellH).stroke();
-
-        doc.undash();
-        doc.fontSize(7).fillColor(cutColor)
-          .text('✂ CORTE', cellW + 4, cellH - 10, { lineBreak: false });
+    return new Response(new Uint8Array(pdfBuffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    });
+  } catch (error) {
+    console.error('[PDF Export Fatal Error]:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Error al generar el archivo PDF',
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
       }
-    } else {
-      // 1 TABLE PER SHEET / CARD
-      for (let i = 0; i < tables.length; i++) {
-        const table = tables[i];
-        doc.addPage();
-
-        // Paint entire page background
-        doc.rect(0, 0, doc.page.width, doc.page.height).fillColor(design.bgColor).fill();
-
-        const qrTargetUrl = `${baseUrl}/q/${table.token_hash}`;
-        const qrImageBuffer = await QRCode.toBuffer(qrTargetUrl, {
-          width: 600,
-          margin: 1,
-          color: { dark: '#09090b', light: '#ffffff' },
-          errorCorrectionLevel: 'H',
-        });
-
-        if (isTent) {
-          // TABLE TENT FORMAT (Folding Card - 2 identical sides on 1 page)
-          const halfHeight = doc.page.height / 2;
-
-          // Render Side 1 (Top half)
-          renderTableCard(doc, {
-            venueName: venue.name,
-            tableNumber: table.table_number,
-            totalTables: tables.length,
-            qrBuffer: qrImageBuffer,
-            yOffset: 20,
-            cardHeight: halfHeight - 40,
-            design,
-          });
-
-          // Fold dotted line
-          const foldLineColor = design.isDark ? '#52525b' : '#a1a1aa';
-          doc.dash(4, { space: 4 })
-            .moveTo(25, halfHeight)
-            .lineTo(doc.page.width - 25, halfHeight)
-            .lineWidth(1)
-            .strokeColor(foldLineColor)
-            .stroke();
-
-          doc.undash();
-          doc.fontSize(7.5)
-            .fillColor(foldLineColor)
-            .text('✂ LÍNEA DE PLIEGUE CENTRAL (DOBLAR AQUÍ) ✂', 0, halfHeight - 9, {
-              width: doc.page.width,
-              align: 'center',
-              characterSpacing: 0.5,
-            });
-
-          // Render Side 2 (Bottom half)
-          renderTableCard(doc, {
-            venueName: venue.name,
-            tableNumber: table.table_number,
-            totalTables: tables.length,
-            qrBuffer: qrImageBuffer,
-            yOffset: halfHeight + 20,
-            cardHeight: halfHeight - 40,
-            design,
-          });
-        } else if (isMini) {
-          // MINI ACRYLIC STAND FORMAT (10x15cm) - PROPORTIONAL & ZERO WASTED SPACE
-          renderMiniCard(doc, {
-            venueName: venue.name,
-            tableNumber: table.table_number,
-            qrBuffer: qrImageBuffer,
-            design,
-          });
-        } else {
-          // STANDARD A4 FORMAT
-          renderStandardA4Card(doc, {
-            venueName: venue.name,
-            tableNumber: table.table_number,
-            totalTables: tables.length,
-            qrBuffer: qrImageBuffer,
-            design,
-          });
-        }
-      }
-    }
-
-    doc.end();
-  });
-
-  const filename = `Master-QRs-${venue.slug}-${format}${tableFilter ? `-mesa-${tableFilter}` : ''}.pdf`;
-
-  return new Response(new Uint8Array(pdfBuffer), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${filename}"`,
-      'Cache-Control': 'no-store, max-age=0',
-    },
-  });
+    );
+  }
 }
 
 function renderTableCard(
