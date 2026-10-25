@@ -28,8 +28,87 @@ import {
   Clock,
   ShieldCheck,
   LogOut,
+  Palette,
+  Download,
+  X,
+  Printer,
+  RotateCcw,
+  Check,
 } from 'lucide-react';
 import { logoutAdminAction } from '@/server/actions/auth';
+
+export const QR_DESIGN_PRESETS = [
+  {
+    id: 'neon',
+    name: 'Violeta Neón',
+    bg: '#ffffff',
+    accent: '#7c3aed',
+    text: '#18181b',
+    badgeText: '#ffffff',
+    subtext: '#52525b',
+    dotColor: '#7c3aed',
+  },
+  {
+    id: 'gala',
+    name: 'Noche de Gala',
+    bg: '#09090b',
+    accent: '#d97706',
+    text: '#f4f4f5',
+    badgeText: '#000000',
+    subtext: '#a1a1aa',
+    dotColor: '#d97706',
+  },
+  {
+    id: 'wedding',
+    name: 'Boda Elegante',
+    bg: '#faf7f2',
+    accent: '#b45309',
+    text: '#27272a',
+    badgeText: '#ffffff',
+    subtext: '#71717a',
+    dotColor: '#b45309',
+  },
+  {
+    id: 'rose',
+    name: 'Rose & Pink',
+    bg: '#fff5f7',
+    accent: '#e11d48',
+    text: '#18181b',
+    badgeText: '#ffffff',
+    subtext: '#71717a',
+    dotColor: '#e11d48',
+  },
+  {
+    id: 'sapphire',
+    name: 'Azul Zafiro',
+    bg: '#0a1128',
+    accent: '#2563eb',
+    text: '#f8fafc',
+    badgeText: '#ffffff',
+    subtext: '#94a3b8',
+    dotColor: '#2563eb',
+  },
+  {
+    id: 'minimal',
+    name: 'B&W Minimal',
+    bg: '#ffffff',
+    accent: '#18181b',
+    text: '#18181b',
+    badgeText: '#ffffff',
+    subtext: '#52525b',
+    dotColor: '#18181b',
+  },
+  {
+    id: 'emerald',
+    name: 'Verde Esmeralda',
+    bg: '#042219',
+    accent: '#059669',
+    text: '#f0fdf4',
+    badgeText: '#ffffff',
+    subtext: '#86efac',
+    dotColor: '#059669',
+  },
+];
 
 interface VenueWithStats extends Venue {
   totalTables: number;
@@ -75,6 +154,43 @@ export default function AdminDashboardClient({
   const [activeTablesCount, setActiveTablesCount] = useState<number>(20);
   const [eventIsActive, setEventIsActive] = useState<boolean>(true);
   const [eventModerationMode, setEventModerationMode] = useState<'auto_approve' | 'strict'>('auto_approve');
+
+  // QR Customizer Modal State
+  const [customizingVenue, setCustomizingVenue] = useState<VenueWithStats | null>(null);
+  const [customFormat, setCustomFormat] = useState<'a4' | 'tent' | 'mini'>('a4');
+  const [customBgColor, setCustomBgColor] = useState<string>('#ffffff');
+  const [customAccentColor, setCustomAccentColor] = useState<string>('#7c3aed');
+  const [customTextColor, setCustomTextColor] = useState<string>('#18181b');
+  const [customBadgeTextColor, setCustomBadgeTextColor] = useState<string>('#ffffff');
+  const [customSubtextColor, setCustomSubtextColor] = useState<string>('#52525b');
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('neon');
+
+  const handleOpenCustomizer = (venue: VenueWithStats, format: 'a4' | 'tent' | 'mini' = 'a4') => {
+    setCustomizingVenue(venue);
+    setCustomFormat(format);
+  };
+
+  const handleApplyPreset = (preset: (typeof QR_DESIGN_PRESETS)[0]) => {
+    setSelectedPresetId(preset.id);
+    setCustomBgColor(preset.bg);
+    setCustomAccentColor(preset.accent);
+    setCustomTextColor(preset.text);
+    setCustomBadgeTextColor(preset.badgeText);
+    setCustomSubtextColor(preset.subtext);
+  };
+
+  const getPdfDownloadUrl = () => {
+    if (!customizingVenue) return '#';
+    const params = new URLSearchParams({
+      format: customFormat,
+      bg: customBgColor,
+      accent: customAccentColor,
+      text: customTextColor,
+      badgeText: customBadgeTextColor,
+      subtext: customSubtextColor,
+    });
+    return `/admin/venues/${customizingVenue.id}/pdf?${params.toString()}`;
+  };
 
   // Keep selectedVenueId in sync whenever venues changes
   useEffect(() => {
@@ -527,35 +643,38 @@ export default function AdminDashboardClient({
                 </p>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-zinc-800/80 space-y-2">
-                <span className="text-[11px] font-semibold text-zinc-400 block mb-1">
-                  Exportar Kit de Imprenta:
-                </span>
+              <div className="mt-5 pt-4 border-t border-zinc-800/80 space-y-2.5">
+                <button
+                  onClick={() => handleOpenCustomizer(venue, 'a4')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-brand-600 via-purple-600 to-brand-500 hover:from-brand-500 hover:to-purple-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-brand-900/40 transition-all cursor-pointer group"
+                >
+                  <Palette className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                  <span>Personalizar y Exportar QRs</span>
+                </button>
+
+                <div className="flex items-center justify-between text-[11px] text-zinc-400 px-0.5">
+                  <span>Formatos de imprenta:</span>
+                </div>
+
                 <div className="grid grid-cols-3 gap-1.5">
-                  <a
-                    href={`/admin/venues/${venue.id}/pdf?format=a4`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-center text-xs font-semibold border border-zinc-700 transition-all"
+                  <button
+                    onClick={() => handleOpenCustomizer(venue, 'a4')}
+                    className="py-1.5 px-2 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 text-center text-xs font-semibold border border-zinc-700 transition-all cursor-pointer"
                   >
                     Estándar A4
-                  </a>
-                  <a
-                    href={`/admin/venues/${venue.id}/pdf?format=tent`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-2 rounded-lg bg-brand-600/30 hover:bg-brand-600/50 text-brand-300 text-center text-xs font-semibold border border-brand-500/40 transition-all"
+                  </button>
+                  <button
+                    onClick={() => handleOpenCustomizer(venue, 'tent')}
+                    className="py-1.5 px-2 rounded-lg bg-brand-600/20 hover:bg-brand-600/40 text-brand-300 text-center text-xs font-semibold border border-brand-500/40 transition-all cursor-pointer"
                   >
                     Carpa Mesa
-                  </a>
-                  <a
-                    href={`/admin/venues/${venue.id}/pdf?format=mini`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-center text-xs font-semibold border border-amber-500/30 transition-all"
+                  </button>
+                  <button
+                    onClick={() => handleOpenCustomizer(venue, 'mini')}
+                    className="py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-center text-xs font-semibold border border-amber-500/30 transition-all cursor-pointer"
                   >
                     Mini 10x15
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -780,6 +899,431 @@ export default function AdminDashboardClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal: QR Design Customizer & Master PDF Export */}
+      {customizingVenue && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="glass-panel rounded-3xl max-w-4xl w-full p-5 sm:p-7 border-zinc-700 shadow-2xl animate-fade-in my-auto max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 text-brand-400 flex items-center justify-center shadow-inner">
+                  <Palette className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                    <span>Personalizar Diseño de QRs para Imprenta</span>
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Salón: <span className="text-white font-semibold">{customizingVenue.name}</span> • {customizingVenue.totalTables || 30} mesas permanentes
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setCustomizingVenue(null)}
+                className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: 2 Columns (Controls & Live Preview) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 py-5 overflow-y-auto pr-1">
+              {/* Left Column: Controls (7 cols) */}
+              <div className="lg:col-span-7 space-y-5">
+                {/* 1. Format Selector */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                    1. Formato de Impresión
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCustomFormat('a4')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        customFormat === 'a4'
+                          ? 'bg-brand-600/20 border-brand-500 text-white shadow-md shadow-brand-500/10'
+                          : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-white">Estándar A4</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">1 mesa por hoja</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCustomFormat('tent')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        customFormat === 'tent'
+                          ? 'bg-brand-600/20 border-brand-500 text-white shadow-md shadow-brand-500/10'
+                          : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-white">Carpa Mesa</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">2 caras plegables</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCustomFormat('mini')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        customFormat === 'mini'
+                          ? 'bg-brand-600/20 border-brand-500 text-white shadow-md shadow-brand-500/10'
+                          : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-white">Mini 10x15</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Para acrílicos</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Presets Rápidos */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                      2. Paletas de Fiesta (Presets 1-Click)
+                    </label>
+                    <span className="text-[10px] text-zinc-500">Hacé clic para aplicar</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {QR_DESIGN_PRESETS.map((preset) => {
+                      const isSelected = selectedPresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => handleApplyPreset(preset)}
+                          className={`flex items-center gap-2 p-2 rounded-xl border transition-all text-left cursor-pointer ${
+                            isSelected
+                              ? 'bg-zinc-800 border-brand-500 text-white ring-1 ring-brand-500/50'
+                              : 'bg-zinc-900/70 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                          }`}
+                        >
+                          <div
+                            className="w-4 h-4 rounded-full border border-black/20 flex-shrink-0 shadow-sm"
+                            style={{ backgroundColor: preset.accent }}
+                          />
+                          <span className="text-xs font-medium truncate">{preset.name}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-brand-400 ml-auto flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Color Customizers */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                    3. Ajuste Fino de Colores
+                  </label>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800">
+                    {/* Fondo */}
+                    <div>
+                      <span className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                        Fondo de Tarjeta
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customBgColor}
+                          onChange={(e) => {
+                            setCustomBgColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                        />
+                        <input
+                          type="text"
+                          value={customBgColor}
+                          onChange={(e) => {
+                            setCustomBgColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Acento (Líneas y Badge) */}
+                    <div>
+                      <span className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                        Líneas y Badge
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customAccentColor}
+                          onChange={(e) => {
+                            setCustomAccentColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                        />
+                        <input
+                          type="text"
+                          value={customAccentColor}
+                          onChange={(e) => {
+                            setCustomAccentColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Texto del Badge */}
+                    <div>
+                      <span className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                        Texto de "MESA #X"
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customBadgeTextColor}
+                          onChange={(e) => {
+                            setCustomBadgeTextColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                        />
+                        <input
+                          type="text"
+                          value={customBadgeTextColor}
+                          onChange={(e) => {
+                            setCustomBadgeTextColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Texto Principal */}
+                    <div>
+                      <span className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                        Texto de Títulos
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customTextColor}
+                          onChange={(e) => {
+                            setCustomTextColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                        />
+                        <input
+                          type="text"
+                          value={customTextColor}
+                          onChange={(e) => {
+                            setCustomTextColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Subtexto e Instrucciones */}
+                    <div className="sm:col-span-2">
+                      <span className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                        Subtexto e Instrucciones
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={customSubtextColor}
+                          onChange={(e) => {
+                            setCustomSubtextColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                        />
+                        <input
+                          type="text"
+                          value={customSubtextColor}
+                          onChange={(e) => {
+                            setCustomSubtextColor(e.target.value);
+                            setSelectedPresetId('custom');
+                          }}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-brand-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Interactive Preview (5 cols) */}
+              <div className="lg:col-span-5 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                      Vista Previa en Vivo (Mesa #1)
+                    </span>
+                    <span className="text-[10px] text-brand-400 font-semibold bg-brand-500/10 px-2 py-0.5 rounded-full border border-brand-500/20">
+                      {customFormat === 'a4' ? 'A4 Vertical' : customFormat === 'tent' ? 'Carpa Plegable' : 'Mini 10x15'}
+                    </span>
+                  </div>
+
+                  {/* Card Simulation */}
+                  <div
+                    className="rounded-2xl p-4 transition-all duration-300 shadow-xl border relative overflow-hidden flex flex-col justify-between text-center select-none"
+                    style={{
+                      backgroundColor: customBgColor,
+                      borderColor: customAccentColor,
+                      minHeight: customFormat === 'tent' ? '380px' : '340px',
+                    }}
+                  >
+                    {/* Inner subtle frame */}
+                    <div
+                      className="absolute inset-1.5 rounded-xl pointer-events-none border opacity-40"
+                      style={{ borderColor: customAccentColor }}
+                    />
+
+                    {/* Top Section */}
+                    <div className="relative z-10 pt-1">
+                      <div
+                        className="text-[9px] font-bold uppercase tracking-widest truncate px-2"
+                        style={{ color: customSubtextColor }}
+                      >
+                        {customizingVenue.name}
+                      </div>
+
+                      {/* Badge Mesa */}
+                      <div className="flex justify-center my-2">
+                        <div
+                          className="px-4 py-1 rounded-full text-xs font-black tracking-wide shadow-md transition-all"
+                          style={{
+                            backgroundColor: customAccentColor,
+                            color: customBadgeTextColor,
+                          }}
+                        >
+                          MESA #1
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* QR Code Simulation (Center) */}
+                    <div className="relative z-10 flex flex-col items-center my-1">
+                      {/* White Plaque behind QR */}
+                      <div
+                        className="p-2.5 rounded-xl bg-white shadow-lg border transition-all"
+                        style={{ borderColor: customAccentColor }}
+                      >
+                        <svg
+                          className="w-24 h-24 sm:w-28 sm:h-28 text-zinc-950"
+                          viewBox="0 0 100 100"
+                          fill="currentColor"
+                        >
+                          {/* Top-left marker */}
+                          <rect x="5" y="5" width="28" height="28" rx="4" fill="currentColor" />
+                          <rect x="9" y="9" width="20" height="20" rx="2" fill="white" />
+                          <rect x="13" y="13" width="12" height="12" rx="1" fill="currentColor" />
+
+                          {/* Top-right marker */}
+                          <rect x="67" y="5" width="28" height="28" rx="4" fill="currentColor" />
+                          <rect x="71" y="9" width="20" height="20" rx="2" fill="white" />
+                          <rect x="75" y="13" width="12" height="12" rx="1" fill="currentColor" />
+
+                          {/* Bottom-left marker */}
+                          <rect x="5" y="67" width="28" height="28" rx="4" fill="currentColor" />
+                          <rect x="9" y="71" width="20" height="20" rx="2" fill="white" />
+                          <rect x="13" y="75" width="12" height="12" rx="1" fill="currentColor" />
+
+                          {/* QR Mock Data Points */}
+                          <rect x="38" y="10" width="6" height="6" fill="currentColor" />
+                          <rect x="48" y="10" width="6" height="6" fill="currentColor" />
+                          <rect x="58" y="10" width="6" height="6" fill="currentColor" />
+                          <rect x="38" y="22" width="6" height="6" fill="currentColor" />
+                          <rect x="52" y="22" width="6" height="6" fill="currentColor" />
+                          <rect x="10" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="22" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="34" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="46" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="64" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="76" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="88" y="40" width="6" height="6" fill="currentColor" />
+                          <rect x="40" y="52" width="6" height="6" fill="currentColor" />
+                          <rect x="54" y="52" width="6" height="6" fill="currentColor" />
+                          <rect x="68" y="52" width="6" height="6" fill="currentColor" />
+                          <rect x="40" y="66" width="6" height="6" fill="currentColor" />
+                          <rect x="54" y="66" width="6" height="6" fill="currentColor" />
+                          <rect x="70" y="66" width="6" height="6" fill="currentColor" />
+                          <rect x="84" y="66" width="6" height="6" fill="currentColor" />
+                          <rect x="40" y="80" width="6" height="6" fill="currentColor" />
+                          <rect x="58" y="80" width="6" height="6" fill="currentColor" />
+                          <rect x="72" y="80" width="6" height="6" fill="currentColor" />
+                          <rect x="86" y="80" width="6" height="6" fill="currentColor" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Bottom Instructions */}
+                    <div className="relative z-10 space-y-1 pb-1">
+                      <div
+                        className="text-[11px] font-black tracking-tight"
+                        style={{ color: customTextColor }}
+                      >
+                        ¡COMPARTÍ TUS FOTOS EN PANTALLA!
+                      </div>
+                      <div
+                        className="text-[9px] leading-tight"
+                        style={{ color: customSubtextColor }}
+                      >
+                        1. Escaneá con tu celular • 2. Sacá tu foto • 3. En vivo en la fiesta
+                      </div>
+                    </div>
+
+                    {/* If Tent, show dotted fold line indicator */}
+                    {customFormat === 'tent' && (
+                      <div className="absolute inset-x-0 bottom-0 bg-black/10 border-t border-dashed border-zinc-400 py-1 text-[8px] text-zinc-500 font-mono">
+                        --- LÍNEA DE PLIEGUE CENTRAL (DOBLAR AQUÍ) ---
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Print Info Callout */}
+                <div className="mt-4 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-400 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Printer className="w-4 h-4 text-brand-400 flex-shrink-0" />
+                    <span>Se generará un PDF de {customizingVenue.totalTables || 30} páginas vectoriales.</span>
+                  </div>
+                  <span className="text-zinc-500 font-mono">300 DPI</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCustomizingVenue(null)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold text-xs border border-zinc-800 transition-all cursor-pointer"
+              >
+                Cerrar
+              </button>
+
+              <a
+                href={getPdfDownloadUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 via-purple-600 to-brand-500 hover:from-brand-500 hover:to-purple-400 text-white font-bold text-xs shadow-lg shadow-brand-900/40 transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>
+                  Descargar PDF Master ({customFormat === 'a4' ? 'Estándar A4' : customFormat === 'tent' ? 'Carpa Mesa' : 'Mini 10x15'})
+                </span>
+              </a>
+            </div>
           </div>
         </div>
       )}
